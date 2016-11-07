@@ -11,7 +11,7 @@ from
     (
         select server_id, role_id, role_channel, min(ds) ds
         from db_stat_platform.gaea_stat_role_login
-        where ds <='20160630'
+        where ds <='20160930'
             and role_channel != '1'
         group by server_id, role_id, role_channel
     ) t1
@@ -44,7 +44,7 @@ from
 (
     select server_id, role_id, if (role_channel in ('1009', '1010', '1142'), 'gaea', role_channel) as channel, substring(ds, 1, 6) as month
     from db_stat_platform.gaea_stat_role_login
-    where ds <='20160630'
+    where ds <='20160930'
         and role_channel != '1'
     group by server_id, role_id, if (role_channel in ('1009', '1010', '1142'), 'gaea', role_channel), substring(ds, 1, 6)
 ) t1
@@ -72,7 +72,7 @@ group by t1.month;
 hive -e "
 select substring(ds, 1, 6), event_type, sum(cast(ingot_num as bigint))
 from db_stat_platform.gaea_stat_currency_track
-where ds <= '20160630'
+where ds <= '20160930'
     and (cast(event_type as bigint) between 4001 and 5000)
 group by substring(ds, 1, 6), event_type;
 " > cn_fff_yuanbao_use_monthly.tsv
@@ -83,7 +83,7 @@ group by substring(ds, 1, 6), event_type;
 hive -e "
 select substring(ds, 1, 6), event_type, sum(cast(ingot_num as bigint))
 from db_stat_platform.gaea_stat_currency_track
-where ds <= '20160630'
+where ds <= '20160930'
     and (cast(event_type as bigint) between 3001 and 4000)
 group by substring(ds, 1, 6), event_type;
 " > cn_fff_yuanbao_get_monthly.tsv
@@ -93,14 +93,14 @@ group by substring(ds, 1, 6), event_type;
 hive -e "
 select substring(ds, 1, 6), event_type, sum(cast(ingot_num as bigint))
 from db_stat_platform.gaea_stat_currency_track
-where ds <= '20160630'
+where ds <= '20160930'
     and cast(event_type as bigint) = 3008
 group by substring(ds, 1, 6), event_type;
 " > cn_fff_yuanbao_pay_monthly.tsv
 
 
 ---- 自由之战每月留存： 月份， 留存标识， 留存数
-hive -e "
+--hive -e "
 select substring(n.ds, 1, 6), datediff(from_unixtime(unix_timestamp(a.ds, 'yyyyMMdd'), 'yyyy-MM-dd'), from_unixtime(unix_timestamp(n.ds, 'yyyyMMdd'), 'yyyy-MM-dd')), count(distinct a.user_id, a.channel)
 from
 (
@@ -163,7 +163,7 @@ join
 on(n.user_id = a.user_id and n.channel = a.channel)
 where datediff(from_unixtime(unix_timestamp(a.ds, 'yyyyMMdd'), 'yyyy-MM-dd'), from_unixtime(unix_timestamp(n.ds, 'yyyyMMdd'), 'yyyy-MM-dd')) in ('1', '6', '13')
 group by substring(n.ds, 1, 6), datediff(from_unixtime(unix_timestamp(a.ds, 'yyyyMMdd'), 'yyyy-MM-dd'), from_unixtime(unix_timestamp(n.ds, 'yyyyMMdd'), 'yyyy-MM-dd'));
-" > cn_fff_retention_monthly.tsv
+--" > cn_fff_retention_monthly.tsv
 
 
 
