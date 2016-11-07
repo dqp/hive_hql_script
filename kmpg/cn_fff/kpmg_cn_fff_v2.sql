@@ -36,6 +36,42 @@ from
 group by month;
 " > cn_fff_register_monthly.tsv
 
+---- 自由之战user每日注册用户数：月份  注册用户数
+hive -e "
+select dt, count(distinct user_id, channel)
+from 
+(
+    select t3.user_id, if (t3.channel in ('1009', '1010', '1142'), 'gaea', t3.channel) as channel, min(substring(t1.ds, 1, 8)) as dt
+    from
+    (
+        select server_id, role_id, role_channel, min(ds) ds
+        from db_stat_platform.gaea_stat_role_login
+        where ds <='20160930'
+            and role_channel != '1'
+        group by server_id, role_id, role_channel
+    ) t1
+    left outer join
+    (
+        select id as role_id, accountid, serverid
+        from db_game_cn_fff.gaea_cn_fff_data_summoner
+        group by id, accountid, serverid
+    ) t2
+    on (t1.role_id = t2.role_id and t2.serverid = t1.server_id)
+    left outer join
+    (
+        select id as accountid, substring(username, 1, length(username) - length(split(username, '_')[size(split(username, '_')) - 1]) - 1) as user_id, split(username, '_')[size(split(username, '_')) - 1] as channel
+        from db_game_cn_fff.gaea_cn_fff_role_id_login
+        where username is not null
+            and split(username, '_')[size(split(username, '_')) - 1] != '1'
+        group by id, username
+    ) t3
+    on(t2.accountid = t3.accountid)
+    group by t3.user_id, if (t3.channel in ('1009', '1010', '1142'), 'gaea', t3.channel)
+) a
+group by dt
+order by dt;
+" > cn_fff_register_daily.tsv
+
 
 -----自由之战每月活跃数：月份  活跃用户数
 hive -e "
@@ -68,6 +104,38 @@ group by t1.month;
 " > cn_fff_active_monthly.tsv
 
 
+-----自由之战每日活跃数：日期  活跃用户数
+hive -e "
+select t1.dt, count(distinct t3.user_id, if (t3.channel in ('1009', '1010', '1142'), 'gaea', t3.channel))
+from
+(
+    select server_id, role_id, if (role_channel in ('1009', '1010', '1142'), 'gaea', role_channel) as channel, substring(ds, 1, 8) as dt
+    from db_stat_platform.gaea_stat_role_login
+    where ds <='20160930'
+        and role_channel != '1'
+    group by server_id, role_id, if (role_channel in ('1009', '1010', '1142'), 'gaea', role_channel), substring(ds, 1, 8)
+) t1
+left outer join
+(
+    select id as role_id, accountid, serverid
+    from db_game_cn_fff.gaea_cn_fff_data_summoner
+    group by id, accountid, serverid
+) t2
+on (t1.role_id = t2.role_id and t2.serverid = t1.server_id)
+left outer join
+(
+    select id as accountid, substring(username, 1, length(username) - length(split(username, '_')[size(split(username, '_')) - 1]) - 1) as user_id, split(username, '_')[size(split(username, '_')) - 1] as channel
+        from db_game_cn_fff.gaea_cn_fff_role_id_login
+        where username is not null
+            and split(username, '_')[size(split(username, '_')) - 1] != '1'
+        group by id, username
+) t3
+on (t2.accountid = t3.accountid)
+group by t1.dt
+order by t1.dt;
+" > cn_fff_active_daily.tsv
+
+
 -----自由之战钻石消耗(event_type>4000 and event_type<5000 钻石消耗)：月份  钻石消耗类型 钻石数量
 hive -e "
 select substring(ds, 1, 6), event_type, sum(cast(ingot_num as bigint))
@@ -76,6 +144,16 @@ where ds <= '20160930'
     and (cast(event_type as bigint) between 4001 and 5000)
 group by substring(ds, 1, 6), event_type;
 " > cn_fff_yuanbao_use_monthly.tsv
+
+
+-----自由之战钻石消耗(event_type>4000 and event_type<5000 钻石消耗)：日期  钻石消耗类型 钻石数量
+hive -e "
+select substring(ds, 1, 8), event_type, sum(cast(ingot_num as bigint))
+from db_stat_platform.gaea_stat_currency_track
+where ds <= '20160930'
+    and (cast(event_type as bigint) between 4001 and 5000)
+group by substring(ds, 1, 8), event_type;
+" > cn_fff_yuanbao_use_daily.tsv
 
 
 
@@ -98,6 +176,15 @@ where ds <= '20160930'
 group by substring(ds, 1, 6), event_type;
 " > cn_fff_yuanbao_pay_monthly.tsv
 
+-----自由之战钻石充值获得，不包括赠送：日期  钻石类型 钻石数量
+hive -e "
+select substring(ds, 1, 8), event_type, sum(cast(ingot_num as bigint))
+from db_stat_platform.gaea_stat_currency_track
+where ds <= '20160930'
+    and cast(event_type as bigint) = 3008
+group by substring(ds, 1, 8), event_type;
+" > cn_fff_yuanbao_pay_daily.tsv
+
 
 ---- 自由之战每月留存： 月份， 留存标识， 留存数
 --hive -e "
@@ -115,7 +202,7 @@ from
     (
         select server_id, role_id, role_channel, min(ds) ds
         from db_stat_platform.gaea_stat_role_login
-        where ds <='20160630'
+        where ds <='20160930'
             and role_channel != '1'
         group by server_id, role_id, role_channel
     ) t2
@@ -144,7 +231,7 @@ join
     (
         select server_id, role_id, role_channel, ds
         from db_stat_platform.gaea_stat_role_login
-        where ds <='20160630'
+        where ds <='20160930'
             and role_channel != '1'
         group by server_id, role_id, role_channel, ds
     ) t2
@@ -177,7 +264,7 @@ from
         and region = 'cn'
         and product_id in ('510002', '530002', '511002', '531002', '520002')
         and pay_state = '2'
-    and from_unixtime(cast(pay_time as bigint), 'yyyyMMdd') <= '20160630'
+    and from_unixtime(cast(pay_time as bigint), 'yyyyMMdd') <= '20160930'
     group by 'gaea', user_id, pay_currency
 ) b1
 left outer join
@@ -194,7 +281,7 @@ from
 (
     select serverid, sumid as roleid, split(order_channel, '_')[size(split(order_channel, '_')) - 1] as channel, sum(pay_money_fen)/100.0 as rmb
     from db_game_cn_fff.gaea_cn_fff_data_charge_log
-    where ds <='2016-06-30'
+    where ds <='2016-09-30'
         and split(order_channel, '_')[size(split(order_channel, '_')) - 1] not in ('1', '1009', '1010', '1142')
     group by serverid, sumid, split(order_channel, '_')[size(split(order_channel, '_')) - 1]
 ) i1
@@ -234,7 +321,7 @@ from
         where region = 'cn' 
             and product_id in ('510002', '530002', '511002', '531002', '520002') 
             and pay_state = '2'
-            and from_unixtime(cast(pay_time as bigint), 'yyyyMMdd') <= '20160630'
+            and from_unixtime(cast(pay_time as bigint), 'yyyyMMdd') <= '20160930'
         group by user_id, pay_currency, from_unixtime(cast(pay_time as bigint), 'yyyy-MM-dd')
     ) b1
     left outer join
@@ -251,7 +338,7 @@ from
     (
         select serverid, sumid as role_id, split(order_channel, '_')[size(split(order_channel, '_')) - 1] as channel, substring(date_time, 1, 10) as dt, sum(pay_money_fen)/100.0 as rmb
         from db_game_cn_fff.gaea_cn_fff_data_charge_log
-        where ds <='2016-06-30'
+        where ds <='2016-09-30'
             and split(order_channel, '_')[size(split(order_channel, '_')) - 1] not in ('1', '1009', '1010', '1142')
         group by serverid, sumid, split(order_channel, '_')[size(split(order_channel, '_')) - 1], substring(date_time, 1, 10)
     ) i1
@@ -274,6 +361,60 @@ from
 ) payments
 group by substring(payments.dt, 1, 7);
 " > cn_fff_payment_monthly.tsv
+
+---- 按日期统计充值:日期 充值金额  充值人数
+hive -e "
+select substring(payments.dt, 1, 10), count(distinct payments.channel, payments.user_id), sum(payments.rmb)
+from
+(
+    select 'gaea' as channel, b1.user_id, 'CNY' as pay_currency, b1.dt, sum(b1.pay_amount * b2.rate) as rmb
+    from
+    (
+        select user_id, pay_currency, from_unixtime(cast(pay_time as bigint), 'yyyy-MM-dd') as dt, sum(pay_amount) as pay_amount
+        from db_billing.gboss_pay_orders
+        where region = 'cn' 
+            and product_id in ('510002', '530002', '511002', '531002', '520002') 
+            and pay_state = '2'
+            and from_unixtime(cast(pay_time as bigint), 'yyyyMMdd') <= '20160930'
+        group by user_id, pay_currency, from_unixtime(cast(pay_time as bigint), 'yyyy-MM-dd')
+    ) b1
+    left outer join
+    (
+        select from_currency, rate
+        from kp_gaea_audit.currency_exchange_rate
+        group by from_currency, rate
+    ) b2
+    on (b1.pay_currency = b2.from_currency)
+    group by b1.user_id, b1.dt
+    union all
+    select i3.channel, i3.user_id, 'CNY' as pay_currency, i1.dt, i1.rmb
+    from
+    (
+        select serverid, sumid as role_id, split(order_channel, '_')[size(split(order_channel, '_')) - 1] as channel, substring(date_time, 1, 10) as dt, sum(pay_money_fen)/100.0 as rmb
+        from db_game_cn_fff.gaea_cn_fff_data_charge_log
+        where ds <='2016-09-30'
+            and split(order_channel, '_')[size(split(order_channel, '_')) - 1] not in ('1', '1009', '1010', '1142')
+        group by serverid, sumid, split(order_channel, '_')[size(split(order_channel, '_')) - 1], substring(date_time, 1, 10)
+    ) i1
+    left outer join
+    (
+        select id as role_id, accountid, serverid
+        from db_game_cn_fff.gaea_cn_fff_data_summoner
+        group by id, accountid, serverid
+    ) i2
+    on(i1.serverid = i2.serverid and i1.role_id = i2.role_id)
+    left outer join
+    (
+        select id as accountid, substring(username, 1, length(username) - length(split(username, '_')[size(split(username, '_')) - 1]) - 1) as user_id, split(username, '_')[size(split(username, '_')) - 1] as channel
+        from db_game_cn_fff.gaea_cn_fff_role_id_login
+        where username is not null
+            and split(username, '_')[size(split(username, '_')) - 1] not in ('1', '1009', '1010', '1142')
+        group by id, username
+    ) i3
+    on(i2.accountid = i3.accountid)
+) payments
+group by substring(payments.dt, 1, 10);
+" > cn_fff_payment_daily.tsv
 
 
 ---- 重要玩家付费注册时间
@@ -298,7 +439,7 @@ left outer join
     (
         select server_id, role_id, role_channel, min(ds) ds
         from db_stat_platform.gaea_stat_role_login
-        where ds <='20160630'
+        where ds <='20160930'
             and role_channel != '1'
         group by server_id, role_id, role_channel
     ) t2
@@ -342,7 +483,7 @@ left outer join
     (
         select server_id, role_id, role_channel, ds
         from db_stat_platform.gaea_stat_role_login
-        where ds <='20160630'
+        where ds <='20160930'
             and role_channel != '1'
         group by server_id, role_id, role_channel, ds
     ) t2
@@ -380,7 +521,7 @@ join
     (
         select substring(ds, 1, 6) month, server_id, role_id, event_type, sum(cast(ingot_num as bigint)) as yuanbao
         from db_stat_platform.gaea_stat_currency_track
-        where ds <= '20160630'
+        where ds <= '20160930'
             and server_id != '1'
             and (cast(event_type as bigint) between 4001 and 5000)
         group by substring(ds, 1, 6), server_id, role_id, event_type
@@ -425,7 +566,7 @@ left outer join
     (
         select server_id, role_id, event_type, sum(cast(ingot_num as bigint)) as yuanbao
         from db_stat_platform.gaea_stat_currency_track
-        where ds <= '20160630'
+        where ds <= '20160930'
             and server_id != '1'
             and (cast(event_type as bigint) between 4001 and 5000)
         group by server_id, role_id, event_type
@@ -469,7 +610,7 @@ join
     (
         select substring(ds, 1, 6) month, server_id, role_id, event_type, sum(cast(ingot_num as bigint)) as yuanbao
         from db_stat_platform.gaea_stat_currency_track
-        where ds <= '20160630'
+        where ds <= '20160930'
             and server_id != '1'
             and cast(event_type as bigint) = 3008
         group by substring(ds, 1, 6), server_id, role_id, event_type
@@ -514,7 +655,7 @@ left outer join
     (
         select server_id, role_id, event_type, sum(cast(ingot_num as bigint)) as yuanbao
         from db_stat_platform.gaea_stat_currency_track
-        where ds <= '20160630'
+        where ds <= '20160930'
             and server_id != '1'
             and cast(event_type as bigint) = 3008
         group by server_id, role_id, event_type
@@ -553,7 +694,7 @@ from
     (
         select serverid, sumid as role_id, min(date_time) as paytime
         from db_game_cn_fff.gaea_cn_fff_data_charge_log
-        where ds <='2016-06-30'
+        where ds <='2016-09-30'
             and split(order_channel, '_')[size(split(order_channel, '_')) - 1] != '1'
         group by serverid, sumid
     ) t1
@@ -573,7 +714,7 @@ join
     (    
         select server_id, role_id, event_time, event_type, cast(ingot_num as bigint) as yuanbao
         from db_stat_platform.gaea_stat_currency_track
-        where ds <= '20160630'
+        where ds <= '20160930'
             and server_id != '1'
     ) y1
     join
