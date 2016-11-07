@@ -1,16 +1,29 @@
 ---- Gboss 游戏ID标识： '1020006','1010006','1010009','1020009'
+---- 1020006 安卓,1010006 iOS, 1010009 kakao, 1020009 Kakao_android
 ---- 每月用户USER注册数
+
 select substring(ds, 1, 7), count(distinct split(vuin, '-')[size(split(vuin, '-')) - 1])
 from db_game_kr_dota.gaea_kr_dota_user_create
-where ds <= '2016-06-30'
+where ds between '2016-07-01' and '2016-09-30'
 group by substring(ds, 1, 7);
 
+---- 每日用户USER注册数
+select substring(ds, 1, 10), count(distinct split(vuin, '-')[size(split(vuin, '-')) - 1])
+from db_game_kr_dota.gaea_kr_dota_user_create
+where ds between '2016-07-01' and '2016-09-30'
+group by substring(ds, 1, 10);
 
 ---- 每月用户USER活跃数
 select substring(ds, 1, 7), count(distinct split(vuin, '-')[size(split(vuin, '-')) - 1])
 from db_game_kr_dota.gaea_kr_dota_login
-where ds <= '2016-06-30'
+where ds between '2016-07-01' and '2016-09-30'
 group by substring(ds, 1, 7);
+
+---- 每日用户USER活跃数
+select substring(ds, 1, 10), count(distinct split(vuin, '-')[size(split(vuin, '-')) - 1])
+from db_game_kr_dota.gaea_kr_dota_login
+where ds between '2016-07-01' and '2016-09-30'
+group by substring(ds, 1, 10);
 
 --- 修正方法
 select substring(t1.ds, 1, 7), count(distinct t2.vuin)
@@ -31,6 +44,45 @@ on(t1.serverid = t2.serverid and t1.iuserid = t2.iuserid)
 group by substring(t1.ds, 1, 7);
 
 
+---- 付费每月USER用户数
+select from_unixtime(cast(gboss.pay_time as bigint), 'yyyy-MM'), count(distinct gboss.user_id), sum(gboss.pay_amount * x.rate)
+from
+(
+    select user_id, pay_time, pay_currency, pay_amount
+    from db_billing.gboss_pay_orders
+    where region = 'kr' 
+        and pay_state = '2'
+        and from_unixtime(cast(pay_time as bigint), 'yyyy-MM') between '2016-07' and '2016-09'
+        and product_id in ('1020006','1010006','1010009','1020009')
+) gboss
+join
+(
+    select * 
+    from kp_gaea_audit.currency_exchange_rate
+) x
+on (gboss.pay_currency = x.from_currency)
+group by from_unixtime(cast(gboss.pay_time as bigint), 'yyyy-MM');
+
+
+---- 付费每日USER用户数
+select from_unixtime(cast(gboss.pay_time as bigint), 'yyyy-MM-dd'), count(distinct gboss.user_id), sum(gboss.pay_amount * x.rate)
+from
+(
+    select user_id, pay_time, pay_currency, pay_amount
+    from db_billing.gboss_pay_orders
+    where region = 'kr' 
+        and pay_state = '2'
+        and from_unixtime(cast(pay_time as bigint), 'yyyy-MM-dd') between '2016-07-01' and '2016-09-30'
+        and product_id in ('1020006','1010006','1010009','1020009')
+) gboss
+join
+(
+    select * 
+    from kp_gaea_audit.currency_exchange_rate
+) x
+on (gboss.pay_currency = x.from_currency)
+group by from_unixtime(cast(gboss.pay_time as bigint), 'yyyy-MM-dd');
+
 
 ---- 每月用户USER每月留存
 select substring(t1.ds, 1, 7), datediff(t2.ds, t1.ds), count(t2.vuin)
@@ -38,7 +90,7 @@ from
 (
     select ds, split(vuin, '-')[size(split(vuin, '-')) - 1] as vuin
     from db_game_kr_dota.gaea_kr_dota_user_create
-    where ds <= '2016-06-30'
+    where ds between '2016-07-01' and '2016-09-30'
 ) t1
 join
 (
@@ -47,13 +99,13 @@ join
     (
         select split(vuin, '-')[size(split(vuin, '-')) - 1] as vuin, iuserid, serverid
         from db_game_kr_dota.gaea_kr_dota_user_create
-        where ds <= '2016-06-30'
+        where ds between '2016-07-01' and '2016-09-30'
     ) i1
     join
     (
         select ds, iuserid, serverid
         from db_game_kr_dota.gaea_kr_dota_login
-        where ds <= '2016-06-30'
+        where ds between '2016-07-01' and '2016-09-30'
         group by ds, iuserid, serverid
     ) i2
     on(i1.serverid = i2.serverid and i1.iuserid = i2.iuserid)
@@ -92,31 +144,36 @@ CREATE TABLE `kr_dota_key_users`(
 
 
 
----- 元宝消耗
+---- 元宝消耗，按照月份
 select substring(ds, 1, 7), iaction, sum(cast(idiamondbefore as bigint)- cast(idiamondafter as bigint))
 from db_game_kr_dota.gaea_kr_dota_diamond_flow
-where ds <= '2016-06-30' and lower(iflow) = 'out'
+where ds between '2016-07-01' and '2016-09-30'
+  and lower(iflow) = 'out'
 group by substring(ds, 1, 7), iaction;
 
+---- 元宝消耗，按照日期
+select ds, iaction, sum(cast(idiamondbefore as bigint)- cast(idiamondafter as bigint))
+from db_game_kr_dota.gaea_kr_dota_diamond_flow
+where ds between '2016-07-01' and '2016-09-30' 
+  and lower(iflow) = 'out'
+group by ds, iaction;
 
----- 付费每月USER用户数
-select from_unixtime(cast(gboss.pay_time as bigint), 'yyyyMM'), count(distinct gboss.user_id), sum(gboss.pay_amount * x.rate)
-from
-(
-    select user_id, pay_time, pay_currency, pay_amount
-    from db_billing.gboss_pay_orders
-    where region = 'kr' 
-        and pay_state = '2'
-        and from_unixtime(cast(pay_time as bigint), 'yyyyMM') <= '201606'
-        and product_id in ('1020006','1010006','1010009','1020009')
-) gboss
-join
-(
-    select * 
-    from kp_gaea_audit.currency_exchange_rate
-) x
-on (gboss.pay_currency = x.from_currency)
-group by from_unixtime(cast(gboss.pay_time as bigint), 'yyyyMM');
+
+---- 元宝充值获得，按照月份
+select substring(ds, 1, 7) as m, iaction, sum(cast(idiamondafter as bigint)- cast(idiamondbefore as bigint)) as yuanbao
+from db_game_kr_dota.gaea_kr_dota_diamond_flow
+where ds between '2016-07-01' and '2016-09-30'
+  and lower(iflow) = 'in'
+  and iaction = '18'
+group by substring(ds, 1, 7), iaction;
+
+---- 元宝充值获得，按照日期
+select ds, iaction, sum(cast(idiamondafter as bigint)- cast(idiamondbefore as bigint)) as yuanbao
+from db_game_kr_dota.gaea_kr_dota_diamond_flow
+where ds between '2016-07-01' and '2016-09-30'
+  and lower(iflow) = 'in'
+  and iaction = '18'
+group by ds, iaction;
 
 
 ---- 重要玩家注册时间
@@ -131,7 +188,7 @@ left outer join
 (
     select dteventtime, split(vuin, '-')[size(split(vuin, '-')) - 1] as vuin
     from db_game_kr_dota.gaea_kr_dota_user_create
-    where ds <= '2016-06-30'
+    where ds between '2016-07-01' and '2016-09-30'
     group by dteventtime, split(vuin, '-')[size(split(vuin, '-')) - 1]
 ) t2
 on (t1.user_id = t2.vuin);
@@ -204,13 +261,13 @@ left outer join
   (
     select split(vuin, '-')[size(split(vuin, '-')) - 1] as vuin, iuserid, serverid
     from db_game_kr_dota.gaea_kr_dota_user_create
-    where ds <= '2016-06-30'
+    where ds between '2016-07-01' and '2016-09-30'
   ) i1
   join
   (
     select ds, iuserid, serverid
     from db_game_kr_dota.gaea_kr_dota_login
-    where ds <= '2016-06-30'
+    where ds between '2016-07-01' and '2016-09-30'
     group by ds, iuserid, serverid
   ) i2
   on(i1.serverid = i2.serverid and i1.iuserid = i2.iuserid)
@@ -237,7 +294,7 @@ left outer join
   (
     select ds, iuserid as roleid, serverid
     from db_game_kr_dota.gaea_kr_dota_login
-    where ds <= '2016-06-30'
+    where ds between '2016-07-01' and '2016-09-30'
     group by ds, iuserid, serverid
   ) i1
   left outer join
@@ -269,14 +326,14 @@ left outer join
   (
     select substring(ds, 1, 7) as m, serverid, iuserid, iaction, sum(cast(idiamondbefore as bigint)- cast(idiamondafter as bigint)) as yuanbao
     from db_game_kr_dota.gaea_kr_dota_diamond_flow
-    where ds <= '2016-06-30' and lower(iflow) = 'out'
+    where ds between '2016-07-01' and '2016-09-30' and lower(iflow) = 'out'
     group by substring(ds, 1, 7), serverid, iuserid, iaction
   ) i1
   join
   (
     select split(vuin, '-')[size(split(vuin, '-')) - 1] as vuin, serverid, iuserid
     from db_game_kr_dota.gaea_kr_dota_user_create
-    where ds <= '2016-06-30'
+    where ds between '2016-07-01' and '2016-09-30'
     group by split(vuin, '-')[size(split(vuin, '-')) - 1], serverid, iuserid
   ) i2
   on (i1.serverid = i2.serverid and i1.iuserid = i2.iuserid)
@@ -301,14 +358,14 @@ left outer join
   (
     select substring(ds, 1, 7) as m, serverid, iuserid, iaction, sum(cast(idiamondbefore as bigint)- cast(idiamondafter as bigint)) as yuanbao
     from db_game_kr_dota.gaea_kr_dota_diamond_flow
-    where ds <= '2016-06-30' and lower(iflow) = 'out'
+    where ds between '2016-07-01' and '2016-09-30' and lower(iflow) = 'out'
     group by substring(ds, 1, 7), serverid, iuserid, iaction
   ) i1
   join
   (
     select split(vuin, '-')[size(split(vuin, '-')) - 1] as vuin, serverid, iuserid
     from db_game_kr_dota.gaea_kr_dota_user_create
-    where ds <= '2016-06-30'
+    where ds between '2016-07-01' and '2016-09-30'
     group by split(vuin, '-')[size(split(vuin, '-')) - 1], serverid, iuserid
   ) i2
   on (i1.serverid = i2.serverid and i1.iuserid = i2.iuserid)
@@ -334,14 +391,14 @@ left outer join
   (
     select substring(ds, 1, 7) as m, serverid, iuserid, iaction, sum(cast(idiamondbefore as bigint)- cast(idiamondafter as bigint)) as yuanbao
     from db_game_kr_dota.gaea_kr_dota_diamond_flow
-    where ds <= '2016-06-30' and lower(iflow) = 'in' and iaction = '18'
+    where ds between '2016-07-01' and '2016-09-30' and lower(iflow) = 'in' and iaction = '18'
     group by substring(ds, 1, 7), serverid, iuserid, iaction
   ) i1
   join
   (
     select split(vuin, '-')[size(split(vuin, '-')) - 1] as vuin, serverid, iuserid
     from db_game_kr_dota.gaea_kr_dota_user_create
-    where ds <= '2016-06-30'
+    where ds between '2016-07-01' and '2016-09-30'
     group by split(vuin, '-')[size(split(vuin, '-')) - 1], serverid, iuserid
   ) i2
   on (i1.serverid = i2.serverid and i1.iuserid = i2.iuserid)
@@ -367,21 +424,21 @@ left outer join
     (
         select iuserid, serverid, max(dteventtime) as dteventtime
         from db_game_kr_dota.gaea_kr_dota_diamond_flow
-        where ds <= '2016-06-30'
+        where ds between '2016-07-01' and '2016-09-30'
         group by iuserid, serverid
     ) i1
     join
     (
         select iuserid, serverid, dteventtime, idiamondafter
         from db_game_kr_dota.gaea_kr_dota_diamond_flow
-        where ds <= '2016-06-30'
+        where ds between '2016-07-01' and '2016-09-30'
     ) i2
     on(i1.serverid = i2.serverid and i1.iuserid = i2.iuserid and i1.dteventtime = i2.dteventtime)
     join
     (
     select split(vuin, '-')[size(split(vuin, '-')) - 1] as vuin, serverid, iuserid
     from db_game_kr_dota.gaea_kr_dota_user_create
-    where ds <= '2016-06-30'
+    where ds between '2016-07-01' and '2016-09-30'
     group by split(vuin, '-')[size(split(vuin, '-')) - 1], serverid, iuserid
     ) i3
     on (i2.serverid = i3.serverid and i2.iuserid = i3.iuserid)
