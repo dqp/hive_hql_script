@@ -1,4 +1,5 @@
----- gaea官方渠道 1009 1010 1142
+---- 自由之战官方gaea官方渠道标识： 1009(App Store) 1010(GAEA 越狱) 1142(自营:安卓国际包) 1(测试)
+---- GBoss游戏标识： '510002', '530002', '511002', '531002', '520002'
 ---- 自由之战user每月注册用户数：月份  注册用户数
 hive -e "
 select month, count(distinct user_id, channel)
@@ -9,7 +10,6 @@ from
     (
         select id as role_id, accountid, serverid
         from db_game_cn_fff.gaea_cn_fff_data_summoner
-        where ds = '2016-07-26'
         group by id, accountid, serverid
     ) t1
     join
@@ -33,7 +33,6 @@ from
 (
     select id as role_id, accountid as user_id, serverid
     from db_game_cn_fff.gaea_cn_fff_data_summoner
-    where ds = '2016-07-26'
     group by id, accountid, serverid
 ) t1
 join
@@ -78,7 +77,6 @@ from
     (
         select id as role_id, accountid, serverid
         from db_game_cn_fff.gaea_cn_fff_data_summoner
-        where ds = '2016-07-26'
         group by id, accountid, serverid
     ) t1
     join
@@ -98,7 +96,6 @@ join
     (
         select id as role_id, accountid as user_id, serverid
         from db_game_cn_fff.gaea_cn_fff_data_summoner
-        where ds = '2016-07-26'
         group by id, accountid, serverid
     ) t1
     join
@@ -150,7 +147,6 @@ left outer join
 (
     select id as roleid, accountid, serverid
     from db_game_cn_fff.gaea_cn_fff_data_summoner
-    where ds = '2016-07-26'
     group by id, accountid, serverid
 ) i2
 on(i1.serverid = i2.serverid and i1.roleid = i2.roleid)
@@ -212,7 +208,6 @@ from
     (
         select id, accountid, serverid
         from db_game_cn_fff.gaea_cn_fff_data_summoner
-        where ds = '2016-07-26'
         group by id, accountid, serverid
     ) i2
     on(i1.serverid = i2.serverid and i1.sumid = i2.id)
@@ -245,7 +240,6 @@ left outer join
     (
         select id as role_id, accountid, serverid
         from db_game_cn_fff.gaea_cn_fff_data_summoner
-        where ds = '2016-07-26'
         group by id, accountid, serverid
     ) t1
     join
@@ -286,7 +280,6 @@ left outer join
     (
         select id as role_id, accountid, serverid
         from db_game_cn_fff.gaea_cn_fff_data_summoner
-        where ds = '2016-07-26'
         group by id, accountid, serverid
     ) t1
     join
@@ -328,7 +321,6 @@ left outer join
     (
         select id, accountid, serverid
         from db_game_cn_fff.gaea_cn_fff_data_summoner
-        where ds = '2016-07-26'
         group by id, accountid, serverid
     ) t1
     join
