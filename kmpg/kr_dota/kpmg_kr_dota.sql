@@ -70,7 +70,7 @@ select gboss.user_id, sum(gboss.pay_amount * x.rate) from
 (
     select pay_currency, pay_amount, user_id
     from db_billing.gboss_pay_orders
-        and region = 'kr' 
+    where region = 'kr' 
         and pay_state = '2'
         and from_unixtime(cast(pay_time as bigint), 'yyyyMM') <= '201606'
         and product_id in ('1020006','1010006','1010009','1020009')
@@ -105,7 +105,7 @@ from
 (
     select user_id, pay_time, pay_currency, pay_amount
     from db_billing.gboss_pay_orders
-        and region = 'kr' 
+    where region = 'kr' 
         and pay_state = '2'
         and from_unixtime(cast(pay_time as bigint), 'yyyyMM') <= '201606'
         and product_id in ('1020006','1010006','1010009','1020009')
@@ -135,6 +135,51 @@ left outer join
     group by dteventtime, split(vuin, '-')[size(split(vuin, '-')) - 1]
 ) t2
 on (t1.user_id = t2.vuin);
+select vuinlist.vuin, coalesce(ifalist.user_id, udidlist.user_id, maclist.user_id) as userid_set
+from
+(
+  select regexp_replace(lower(vuin),':','') as vuin, dteventtime, iuserid, serverid
+  from db_game_kr_dota.gaea_kr_dota_user_create
+  where ds between '2014-12-04' and '2014-12-17'
+    and vuin is not null
+    and vuin not in ('',' ','0','00000000-0000-0000-0000-000000000000','000000000000000','020000000000','02:00:00:00:00:00','strangedevice','visitor')
+    and size(split(vuin,'-')) = 1
+) vuinlist
+left outer join
+(
+  select user_id, substring(lower(ifa),1,36) as deviceid
+  from db_billing.gboss_users_slave
+  where ds='20160714'
+    and region='kr'
+    and ifa is not null
+    and ifa not in ('',' ','0','00000000-0000-0000-0000-000000000000','000000000000000','020000000000','02:00:00:00:00:00','strangedevice','visitor')
+    and regexp_replace(ifa,'[0]{1,100}','') != ''
+) ifalist
+on (vuinlist.vuin = ifalist.deviceid)
+left outer join
+(
+  select user_id, lower(udid) as deviceid
+  from db_billing.gboss_users_slave
+  where ds='20160714'
+    and region='kr'
+    and udid is not null
+    and udid not in ('',' ','0','00000000-0000-0000-0000-000000000000','000000000000000','020000000000','02:00:00:00:00:00','strangedevice','visitor')
+    and regexp_replace(udid,'[0]{1,100}','') != ''
+) udidlist
+on (vuinlist.vuin = udidlist.deviceid)
+left outer join
+(
+  select user_id, regexp_replace(substring(lower(mac),1,17),':','') as deviceid
+  from db_billing.gboss_users_slave
+  where ds='20160714'
+    and region='kr'
+    and ((length(mac) = 17 and size(split(lower(mac),':')) = 6 and mac != '02:00:00:00:00:00')
+    or (length(mac) in (12,14,15) and mac != '020000000000'))
+) maclist
+on (vuinlist.vuin = maclist.deviceid)
+where (ifalist.deviceid is not null
+  or udidlist.deviceid is not null
+  or maclist.deviceid is not null);
 
 
 ---- 重要玩家充值总额
