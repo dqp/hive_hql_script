@@ -121,7 +121,9 @@ from
 (
     select user_id, pay_currency, sum(pay_amount) as pay_amount
     from db_billing.gboss_pay_orders
-    where ds = '20160714' and region = 'cn' and product_id in ('510002', '530002', '511002', '531002', '520002') and pay_state = '2'
+        and region = 'cn'
+        and product_id in ('510002', '530002', '511002', '531002', '520002')
+        and pay_state = '2'
     and from_unixtime(cast(pay_time as bigint), 'yyyyMMdd') <= '20160630'
     group by 'gaea', user_id, pay_currency
 ) b1
@@ -138,7 +140,7 @@ select i3.channel, i3.user_id, 'CNY', sum(i1.rmb) as rmb
 from
 (
     select serverid, sumid as roleid, split(order_channel, '_')[size(split(order_channel, '_')) - 1] as channel, sum(pay_money_fen)/100.0 as rmb
-    from db_game_cn_fff.gaea_cn_fff_data_charge_log3
+    from db_game_cn_fff.gaea_cn_fff_data_charge_log
     where ds <='2016-06-30'
         and split(order_channel, '_')[size(split(order_channel, '_')) - 1] not in ('1', '1009', '1010', '1142')
     group by serverid, sumid, split(order_channel, '_')[size(split(order_channel, '_')) - 1]
@@ -154,7 +156,6 @@ left outer join
 (
     select id as accountid, split(username, '_')[0] as user_id, split(username, '_')[1] as channel
     from db_game_cn_fff.gaea_cn_fff_role_id_login
-    where ds = '2016-07-31'
         and username is not null
         and split(username, '_')[1] not in ('1', '1009', '1010', '1142')
     group by id, username
@@ -163,11 +164,8 @@ on (i2.accountid = i3.accountid)
 group by i3.channel, i3.user_id, 'CNY';
 
 
-select id, count(*) as times, count(distinct username) from db_game_cn_fff.gaea_cn_fff_role_id_login group by 
-id having times > 1;
-
-
-
+select id, count(*) as times, count(distinct username) from db_game_cn_fff.gaea_cn_fff_role_id_login
+group by id having times > 1;
 
 
 ---- 按月统计充值:月份 充值金额  充值人数
@@ -179,7 +177,6 @@ from
     (
         select user_id, pay_currency, from_unixtime(cast(pay_time as bigint), 'yyyy-MM-dd') as dt, sum(pay_amount) as pay_amount
         from db_billing.gboss_pay_orders
-        where ds = '20160714' 
             and region = 'cn' 
             and product_id in ('510002', '530002', '511002', '531002', '520002') 
             and pay_state = '2'
@@ -199,7 +196,7 @@ from
     from
     (
         select serverid, sumid, split(order_channel, '_')[size(split(order_channel, '_')) - 1] as channel, substring(date_time, 1, 10) as dt, sum(pay_money_fen)/100.0 as rmb
-        from db_game_cn_fff.gaea_cn_fff_data_charge_log3
+        from db_game_cn_fff.gaea_cn_fff_data_charge_log
         where ds <='2016-06-30'
             and split(order_channel, '_')[size(split(order_channel, '_')) - 1] not in ('1', '1009', '1010', '1142')
         group by serverid, sumid, split(order_channel, '_')[size(split(order_channel, '_')) - 1], substring(date_time, 1, 10)
@@ -215,7 +212,6 @@ from
     (
         select id as accountid, split(username, '_')[0] as user_id, split(username, '_')[1] as channel
         from db_game_cn_fff.gaea_cn_fff_role_id_login
-        where ds = '2016-07-31'
             and username is not null
             and split(username, '_')[1] != '1'
         group by id, username
@@ -254,7 +250,6 @@ left outer join
     (
         select id as accountid, split(username, '_')[0] as user_id, split(username, '_')[1] as channel
         from db_game_cn_fff.gaea_cn_fff_role_id_login
-        where ds = '2016-07-31'
             and username is not null
             and split(username, '_')[1] != '1'
         group by id, username
@@ -294,7 +289,6 @@ left outer join
     (
         select id as accountid, split(username, '_')[0] as user_id, split(username, '_')[1] as channel
         from db_game_cn_fff.gaea_cn_fff_role_id_login
-        where ds = '2016-07-31'
             and username is not null
             and split(username, '_')[1] != '1'
     ) t3
