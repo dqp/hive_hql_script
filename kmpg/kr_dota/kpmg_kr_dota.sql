@@ -84,6 +84,26 @@ on (gboss.pay_currency = x.from_currency)
 group by from_unixtime(cast(gboss.pay_time as bigint), 'yyyy-MM-dd');
 
 
+---- 付费每月USER用户数，分平台
+select from_unixtime(cast(gboss.pay_time as bigint), 'yyyy-MM'), product_id, count(distinct gboss.user_id), sum(gboss.pay_amount * x.rate)
+from
+(
+    select user_id, product_id, pay_time, pay_currency, pay_amount
+    from db_billing.gboss_pay_orders
+    where region = 'kr' 
+        and pay_state = '2'
+        and from_unixtime(cast(pay_time as bigint), 'yyyy-MM-dd') between '2016-07-01' and '2016-09-30'
+        and product_id in ('1020006','1010006','1010009','1020009')
+) gboss
+join
+(
+    select * 
+    from kp_gaea_audit.currency_exchange_rate
+) x
+on (gboss.pay_currency = x.from_currency)
+group by from_unixtime(cast(gboss.pay_time as bigint), 'yyyy-MM'), product_id;
+
+
 ---- 每月用户USER每月留存
 select substring(t1.ds, 1, 7), datediff(t2.ds, t1.ds), count(t2.vuin)
 from

@@ -32,5 +32,6 @@ order by pay_month;
 select paychannel, substring(ds,1,7) as pay_month,    
     round(sum(cast(currency as double)),2) as pay_usd
 from db_game_web_wt.gaea_web_wt_charge
+where ds between '2016-01-01' and '2016-09-30'
 group by paychannel, substring(ds,1,7)
 order by paychannel, pay_month;
