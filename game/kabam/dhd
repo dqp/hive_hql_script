@@ -1,0 +1,223 @@
+dhd
+
+select flow.user_id, flow.trans_id, (finalstatus.rubies - flow.rubieschange) as openbalance
+from
+(
+    select flow1.user_id, flow0.trans_id, sum(flow1.rubies) as rubieschange
+    from
+    (
+        select id as trans_id, user_id
+        from db_game_g_doah.doah_user_rubies
+        where ds between '2016-01-01' and '2016-07-16'
+            and realm_id != '249' and realm_id != '49'
+            and ruby_type = '0'
+            and rubies != 0
+    ) flow0
+    join
+    (
+        select id as trans_id, user_id, rubies
+        from db_game_g_doah.doah_user_rubies
+        where ds between '2016-01-01' and '2016-07-16'
+            and realm_id != '249' and realm_id != '49'
+            and ruby_type = '0'
+            and rubies != 0
+    ) flow1
+    on(flow0.user_id = flow1.user_id)
+    where cast(flow0.trans_id as bigint) <= cast(flow1.trans_id as bigint)
+    group by flow1.user_id, flow0.trans_id
+) flow
+join
+(
+    select id as user_id, rubies
+    from db_game_g_doah.doah_users
+) finalstatus
+on (flow.user_id = finalstatus.user_id);
+
+
+
+select distinct naid as userId,ruby_type as ruby_type,
+from db_stat_kabam_audit.doah_user_rubies
+where ds='20160505'
+and (substring(created_at,2,7)='2016-01' or substring(created_at,2,7)='2016-02' or substring(created_at,2,7)='2016-03')
+and substring(tag,2,length(tag)-2)='Purchase'
+
+
+
+---- doah免费变付费玩家的携带
+select '${mon}', sum(finalstatus.rubies - changestatus.rubies)
+from
+(
+    select chargedata.user_id, sum(trackdata.rubies) as rubies
+    from
+    (
+        select tmp.user_id, tmp.firsttime
+        from
+        (
+            select user_id, min(created_at) as firsttime
+            from db_game_g_doah.doah_user_rubies
+            where ds between '${game_begin}' and '${mon_end}'
+                and lower(tag) = 'purchase'
+                and realm_id != '249' and realm_id != '49'
+            group by user_id
+        ) tmp
+        where substring(tmp.firsttime, 1, 10) between '${mon_begin}' and '${mon_end}'
+    ) chargedata
+    join
+    (
+        select user_id, rubies, created_at as gain_time
+        from db_game_g_doah.doah_user_rubies
+        where (ds between '${mon_begin}' and '2016-07-16')
+            and realm_id != '249' and realm_id != '49'
+            and ruby_type = '0'
+    ) trackdata
+    on (chargedata.user_id = trackdata.user_id)
+    where trackdata.gain_time >= chargedata.firsttime
+    group by chargedata.user_id
+) changestatus
+join
+(
+    select id as user_id, rubies
+    from db_game_g_doah.doah_users
+) finalstatus
+on (changestatus.user_id = finalstatus.user_id);
+
+
+
+
+---- hoc免费变付费玩家的携带
+select '${mon}', sum(finalstatus.yuanbao - changestatus.yuanbao)
+from
+(
+    select chargedata.userId, sum(trackdata.totalGems) as yuanbao
+    from
+    (
+        select tmp.userId, tmp.firsttime
+        from
+        (
+            select userId, min(createddate) as firsttime
+            from db_game_g_hoc.hoc_gem_transactions
+            where ds between '${game_begin}' and '${mon_end}'
+                and transactiontype='1'
+                and fullfilled = '1'
+                and serverid != '80'
+            group by userId
+        ) tmp
+        where substring(tmp.firsttime, 1, 10) between '${mon_begin}' and '${mon_end}'
+    ) chargedata
+    join
+    (
+        select userId, totalGems, createddate as gaintime
+        from db_game_g_hoc.hoc_gem_transactions
+        where (ds between '${mon_begin}' and '2016-07-16')
+            and fullfilled = '1'
+            and serverid != '80'
+    ) trackdata
+    on (chargedata.userId = trackdata.userId)
+    where trackdata.gaintime >= chargedata.firsttime
+    group by chargedata.userId
+) changestatus
+join
+(
+    select userid, availablegems as yuanbao
+    from db_game_g_hoc.hoc_gem_account
+) finalstatus
+on (changestatus.userid = finalstatus.userid);
+
+
+----- kom 免费变付费玩家的携带
+
+(
+    select userid, min(createddate) as firsttime
+    from db_game_g_kom.kom_gem_transactions
+    where ds between '${game_begin}' and '${mon_end}'
+        and fullfilled = '1'
+        and transactiontype = '1'
+        and serverid != '150'
+    group by userid
+) firstchargedata
+join
+(
+    select userid, closinggembalance as yuanbaos, createddate as gain_time
+    from db_game_g_kom.kom_gem_transactions
+    where ds between '${mon_begin}' and '${mon_end}'
+        and fullfilled = '1'
+        and transactiontype = '1'
+        and serverid != '150'
+) trackdata
+on (firstchargedata.userid = trackdata.userid and firstchargedata.createddate = trackdata.createddate)
+
+
+
+
+select '${mon_int}' as month, sum(trackdata.yuanbaos)
+from
+(
+    select userid, min(createddate) as firsttime
+    from db_game_g_kom.kom_gem_transactions
+    where ds between '2016-01-01' and '2016-01-31'
+        and fullfilled = '1'
+        and transactiontype = '1'
+        and serverid != '150'
+    group by userid
+) chargedata
+join
+(
+    select userid, cast(closinggembalance as bigint) as yuanbaos, createddate as gain_time
+    from db_game_g_kom.kom_gem_transactions
+    where ds between '2016-01-01' and '2016-01-31'
+        and fullfilled = '1'
+        and transactiontype = '1'
+        and serverid != '150'
+) trackdata
+on (chargedata.userid = trackdata.userid and chargedata.firsttime = trackdata.gain_time);
+
+
+
+select '${mon_int}' as month, sum(trackdata.yuanbaos)
+from
+(
+    select userid, min(createddate) as firsttime
+    from db_game_g_kom.kom_gem_transactions
+    where ds between '2016-01-01' and '2016-01-31'
+        and fullfilled = '1'
+        and transactiontype = '1'
+        and serverid != '150'
+    group by userid
+) chargedata
+join
+(
+    select userid, (cast(closinggembalance as bigint) - cast(proposedamount as bigint)) as yuanbaos, createddate as gain_time
+    from db_game_g_kom.kom_gem_transactions
+    where ds between '2016-01-01' and '2016-01-31'
+        and fullfilled = '1'
+        and transactiontype = '1'
+        and serverid != '150'
+) trackdata
+on (chargedata.userid = trackdata.userid and chargedata.firsttime = trackdata.gain_time);
+
+
+--- KOM
+select '${mon_int}' as month, sum(trackdata.yuanbaos)
+from
+(
+    select userid, min(createddate) as firsttime
+    from db_game_g_kbn.kbn_gem_transactions_full
+    where ds between '2016-01-01' and '2016-01-31'
+        and fullfilled = '1'
+        and transactiontype = '1'
+        and serverid != '150'
+    group by userid
+) chargedata
+join
+(
+    select userid, (cast(closinggembalance as bigint) - cast(proposedamount as bigint)) as yuanbaos, createddate as gain_time
+    from db_game_g_kbn.kbn_gem_transactions_full
+    where ds between '2016-01-01' and '2016-01-31'
+        and fullfilled = '1'
+        and transactiontype = '1'
+        and serverid != '150'
+) trackdata
+on (chargedata.userid = trackdata.userid and chargedata.firsttime = trackdata.gain_time);
+
+
+
