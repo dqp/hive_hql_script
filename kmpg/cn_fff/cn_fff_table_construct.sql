@@ -14,7 +14,6 @@ INSERT OVERWRITE table `db_game_cn_fff.gaea_cn_fff_data_charge_log` PARTITION (d
 select order_channel, orderid_channel, channelaccount, date_time, productid, last_login_time, result, pay_money_fen, normal_addcredit, add_credit, keep_time_sec, sumid, serverid, substring(date_time, 1, 10) as ds
 from `db_game_origin_mysql_backup.gaea_cn_fff_data_charge_log`
 where ds = '2016-11-04'
-    and substring(date_time, 1, 10) < '2016-07-01';
     and substring(date_time, 1, 10) between '2016-07-01' and '2016-10-30';
 
 
