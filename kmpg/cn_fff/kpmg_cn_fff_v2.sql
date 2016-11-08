@@ -255,13 +255,13 @@ group by substring(n.ds, 1, 6), datediff(from_unixtime(unix_timestamp(a.ds, 'yyy
 
 
 --- 自由之战付费玩家建立表格
-insert overwrite table kp_gaea_audit.cn_fff_users_payment
+insert overwrite table kp_gaea_audit.cn_fff_users_payment_201609
 select 'gaea', b1.user_id, 'CNY', sum(b1.pay_amount * b2.rate)
 from
 (
     select user_id, pay_currency, sum(pay_amount) as pay_amount
     from db_billing.gboss_pay_orders
-        and region = 'cn'
+    where region = 'cn'
         and product_id in ('510002', '530002', '511002', '531002', '520002')
         and pay_state = '2'
     and from_unixtime(cast(pay_time as bigint), 'yyyyMMdd') <= '20160930'

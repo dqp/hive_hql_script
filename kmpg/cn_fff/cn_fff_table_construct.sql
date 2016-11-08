@@ -68,6 +68,7 @@ ROW FORMAT DELIMITED
 STORED AS PARQUET;
 
 
+
 CREATE EXTERNAL TABLE `db_game_cn_fff.gaea_cn_fff_role_id_login`(
   `id` string,
   `username` string)
@@ -99,3 +100,14 @@ ROW FORMAT DELIMITED
   FIELDS TERMINATED BY '`'
 STORED AS textfile;
 
+
+
+--- kpmg 11月来公司
+CREATE EXTERNAL TABLE `kp_gaea_audit.cn_fff_users_payment_201609`(
+  `channel` string,
+  `user_id` string,
+  `pay_currency` string,
+  `pay_amount` string)
+ROW FORMAT DELIMITED
+  FIELDS TERMINATED BY '`'
+STORED AS PARQUET;

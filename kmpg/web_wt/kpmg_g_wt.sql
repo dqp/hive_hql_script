@@ -35,3 +35,32 @@ from db_game_web_wt.gaea_web_wt_charge
 where ds between '2016-01-01' and '2016-09-30'
 group by paychannel, substring(ds,1,7)
 order by paychannel, pay_month;
+
+
+---- 重要玩家
+select count(distinct t.udid), sum(t.amount) from
+(
+    select udid, sum(cast(currency as double)) as amount
+    from db_game_web_wt.gaea_web_wt_charge
+    where ds between '2016-01-01' and '2016-09-30'
+    group by udid
+    having amount >= 1500
+) t;
+
+--- 所有玩家人数和金额
+select count(distinct udid), sum(cast(currency as double)) as amount
+from db_game_web_wt.gaea_web_wt_charge
+where ds between '2016-01-01' and '2016-09-30';
+
+
+---- 
+select t.udid, round(t.amount, 2) as amount from
+(
+    select udid, sum(cast(currency as double)) as amount
+    from db_game_web_wt.gaea_web_wt_charge
+    where ds between '2016-01-01' and '2016-09-30'
+    group by udid
+    having amount >= 1500
+) t
+order by amount desc
+limit 100;

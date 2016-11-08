@@ -209,6 +209,28 @@ having rmb > 5000;
 
 
 
+---- 付费玩家
+insert overwrite table kp_gaea_audit.cn_sbkcq_users_payment_201609
+select t2.third_id, t2.third_string, sum(cast(t1.yuanbao as bigint) / 10) as rmb
+from
+(
+    select ds, region_id, account_id, sum(yuanbao) as yuanbao
+    from db_stat_sbkcq.gaea_cn_sbkcq_bill_yuanbao_log
+    where ds <= '20160930'
+    group by ds, region_id, account_id
+) t1
+left outer join
+(
+    select region_id, account_id, third_string, third_id
+    from db_stat_sbkcq.gaea_cn_sbkcq_account_common
+    where ds = '20160930'
+    group by region_id, account_id, third_string, third_id
+) t2
+on(t1.region_id = t2.region_id and t1.account_id = t2.account_id)
+group by t2.third_id, t2.third_string;
+
+
+
 ---- 重要玩家 + 注册 + rmb
 insert overwrite table kp_gaea_audit.cn_sbkcq_key_users_type
 select t2.third_id, t2.third_type, min(t2.reg_time), sum(cast(t1.yuanbao as bigint) / 10) as rmb
