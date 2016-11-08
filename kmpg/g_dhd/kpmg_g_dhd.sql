@@ -1,51 +1,77 @@
+---- 测试服务器：'249','49'
 
-select from_unixtime(o1.min_timestamp,'yyyy-MM') as joinmonth, count(distinct o1.user_id) as count_userid
+----- 每月注册，通过首次登陆时间计算
+select substring(first_login_date, 1, 7) as joinmonth, count(distinct o1.user_id) as count_userid
 from 
 (
-    select user_id, min(unix_timestamp(created_at,'yyyy-MM-dd HH:mm:ss')) as min_timestamp
+    select user_id, min(substring(created_at, 1, 10)) as first_login_date
     from db_game_g_dhd.gaea_g_dhd_login_log
+    where substring(created_at, 1, 7) between '2016-01' and '2016-09'
     group by user_id
 ) o1
-where from_unixtime(o1.min_timestamp,'yyyy-MM') between '2016-01' and '2016-09'
-group by from_unixtime(o1.min_timestamp,'yyyy-MM')
+group by substring(first_login_date, 1, 7)
 order by joinmonth;
---对比数据
-2016-01	97368
-2016-02	90390
-2016-03	94056
-2016-04	87527
-2016-05	76268
-2016-06	56167
-2016-07	53782
-2016-08	55173
-2016-09	43993
-
-----------------------------------------------------------------
---Kabam 龙族崛起 DHD(/DOAH) 分月计 加入玩家数 (按users表)
-----------------------------------------------------------------
-select substring(created_at,1,7) as joinmonth, count(distinct id)
-from db_game_g_dhd.gaea_g_dhd_users
-where ds = '2016-10-11'
-    and substring(created_at,1,7) between '2016-01' and '2016-09'
-group by substring(created_at,1,7)
-order by joinmonth;
---对比数据
-2016-01	93430
-2016-02	87282
-2016-03	90968
-2016-04	84827
-2016-05	74183
-2016-06	54172
-2016-07	51880
-2016-08	53440
-2016-09	42692
 
 
-----------------------------------------------------------------
+----- 每月注册，通过首次登陆时间计算
+select first_login_date, count(distinct o1.user_id) as count_userid
+from 
+(
+    select user_id, min(substring(created_at, 1, 10)) as first_login_date
+    from db_game_g_dhd.gaea_g_dhd_login_log
+    where substring(created_at, 1, 7) between '2016-01' and '2016-09'
+    group by user_id
+) o1
+group by first_login_date
+order by first_login_date;
+
+
+----- 每月活跃
+select substring(created_at, 1, 7) as mon, count(distinct user_id)
+from db_game_g_dhd.gaea_g_dhd_login_log
+where substring(created_at, 1, 7) between '2016-01' and '2016-09'
+group by substring(created_at, 1, 7)
+order by mon;
+
+
+----- 每日活跃
+select substring(created_at, 1, 10) as dt, count(distinct user_id)
+from db_game_g_dhd.gaea_g_dhd_login_log
+where substring(created_at, 1, 7) between '2016-01' and '2016-09'
+group by substring(created_at, 1, 10)
+order by dt;
+
+
+---- 每月付费用户数&金额
+select substring(created_at, 1, 7) as mon, count(distinct user_id), sum(cast(amount_cents as double))/100.0 as payamount
+from db_game_g_dhd.gaea_g_dhd_payments
+where ds between '2016-01-01' and '2016-09-30'
+group by substring(created_at, 1, 7)
+order by mon;
+
+
+---- 每日付费用户数&金额
+select substring(created_at, 1, 10) as dt, count(distinct user_id), sum(cast(amount_cents as double))/100.0 as payamount
+from db_game_g_dhd.gaea_g_dhd_payments
+where ds between '2016-01-01' and '2016-09-30'
+group by substring(created_at, 1, 10)
+order by dt;
+
+
+
+--Kabam 龙族崛起 DHD 用户付费表，加虚拟币获得数，建表(数据) 新 #33931
+insert into table kp_gaea_audit.kabam_dhd_key_user
+select user_id as userid, sum(cast(amount_cents as bigint))/100.0 as payamount, sum(cast(`value` as bigint)) as vcurrency
+from db_game_g_dhd.gaea_g_dhd_payments
+where ds between '2016-01-01' and '2016-09-30'
+group by user_id
+order by payamount desc;
+
+
+
 --11. 重要玩家的钻石余额 
 --userid pay_usd vcurrency_get vcurrency_balance 
 --#1472
-----------------------------------------------------------------
 select changestatus.userid, changestatus.payamount, changestatus.vcurrency_get, sum(finalstatus.vcurrency - changestatus.vcurrency) as vcurrency_use
 from
 (
@@ -106,13 +132,7 @@ on (changestatus.userid = finalstatus.userid)
 group by changestatus.userid, changestatus.payamount, changestatus.vcurrency_get;
 
 
---Kabam 龙族崛起 DHD 用户付费表，加虚拟币获得数，建表(数据) 新 #33931
-insert into table kp_gaea_audit.kabam_dhd_key_user
-select user_id as userid, sum(cast(amount_cents as bigint))/100.0 as payamount, sum(cast(`value` as bigint)) as vcurrency
-from db_game_g_dhd.gaea_g_dhd_payments
-where ds between '2016-01-01' and '2016-09-30'
-group by user_id
-order by payamount desc;
+
 
 ----------------------------------------------------------------
 --Kabam 龙族崛起 DHD(/DOAH) 分平台计 充值金额(USD)
@@ -128,19 +148,6 @@ TrialPay	10034.48
 iTunes	4215406.1
 loyalty	0.0
 
-----------------------------------------------------------------
---充值? 分渠道 (对比数据用)
-----------------------------------------------------------------
-select platform, count(distinct id), sum(cast(`value` as bigint)) 
-from db_game_g_doah.doah_payments 
-where ds between '2016-01-01' and '2016-09-30'
-    and realm_id not in ('249', '49')
-group by platform;
---对比数据: 渠道 次数 获得虚拟币?
-GooglePlay	147418	58133800
-TrialPay	4170	70123
-iTunes	77483	41104310
-loyalty	24020	786935
 
 ----------------------------------------------------------------
 --Kabam 龙族崛起 DHD(/DOAH) 分月计 重要玩家充值金额(USD)
@@ -174,3 +181,37 @@ where ds between '2016-01-01' and '2016-09-30'
     and ruby_type = '0'
 group by tag
 order by tag;
+
+
+
+
+
+
+
+
+
+---=======================================deprecated==================
+--Kabam 龙族崛起 DHD(/DOAH) 分月计 加入玩家数 (按users表)  没有用
+select substring(created_at,1,7) as joinmonth, count(distinct id)
+from db_game_g_dhd.gaea_g_dhd_users
+where ds = '2016-10-11'
+    and substring(created_at,1,7) between '2016-01' and '2016-09'
+group by substring(created_at,1,7)
+order by joinmonth;
+
+
+
+
+----------------------------------------------------------------
+--充值? 分渠道 (对比数据用)
+----------------------------------------------------------------
+select platform, count(distinct id), sum(cast(`value` as bigint)) 
+from db_game_g_doah.doah_payments 
+where ds between '2016-01-01' and '2016-09-30'
+    and realm_id not in ('249', '49')
+group by platform;
+--对比数据: 渠道 次数 获得虚拟币?
+GooglePlay  147418  58133800
+TrialPay    4170    70123
+iTunes  77483   41104310
+loyalty 24020   786935
