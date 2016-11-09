@@ -1,4 +1,7 @@
 ---- 测试服： 150
+---- transactiontype=990 是消除CD  对应itemID很多种包括不限于10，19。消耗的itemcount是0
+---- transactionType=2 是消耗道具，需要找出消耗道具前30
+---- 推广对应充值Typejoin 对应的充值金额很小，零散
 
 ----------------------------------------------------------------
 --道具名称、描述对应；只取英文
@@ -23,53 +26,126 @@ left outer join
 on (itemnamelist.itemcode = itemdesclist.itemcode and itemnamelist.hl = itemdesclist.hl)
 order by cast(itemnamelist.itemcode as bigint);
 
-----------------------------------------------------------------
---5.s1 Kabam KOM  分月计 加入玩家数 
---已修正的数据源(db_game_origin_mysql_backup.gaea_g_kom_user_full)
---注：同步的数据是全字段的，但是db_game_g_kom.gaea_g_kom_user是精简字段的
---@2016.11.04
-----------------------------------------------------------------
-select substring(date_joined,1,7) as joinmonth, count(distinct userid)
-from db_game_g_kom.gaea_g_kom_user
-where ds = '2016-10-11'
-    and substring(date_joined,1,7) between '2016-01' and '2016-09'
-group by substring(date_joined,1,7)
-order by joinmonth;
---数据对比用 1/2
-2016-01	137918
-2016-02	102866
-2016-03	92847
-2016-04	85377
-2016-05	89403
-2016-06	104218
-2016-07	100839
-2016-08	107080
-2016-09	90852
+
+
 ----------------------------------------------------------------
 --5.s2 Kabam KOM 分月计 首登玩家数
 --已优选语句逻辑+优化语句逻辑
 --@2016.11.04
 ----------------------------------------------------------------
-select from_unixtime(first_login.fds,'yyyy-MM') as joinmonth, count(distinct first_login.user_id)
+select first_login_date, substring(first_login_date, 1, 7) as mon, count(distinct first_login.user_id)
 from 
 (
-    select userid as user_id, min(unix_timestamp(`date`,'yyyy-MM-dd')) as fds
+    select userid as user_id, min(`date`) as first_login_date
     from db_game_g_kom.gaea_g_kom_daily_log_data
-    group by userid    
+    where substring(`date`, 1, 7) between '2016-01' and '2016-09'
+    group by userid
 ) first_login
-where from_unixtime(first_login.fds,'yyyy-MM') between '2016-01' and '2016-09'
-group by from_unixtime(first_login.fds,'yyyy-MM')
-order by joinmonth;
---数据对比用 2/2
-2016-01	136301
-2016-02	101634
-2016-03	92435
-2016-04	85685
-2016-05	89039
-2016-06	104530
-2016-07	101288
-2016-08	106437
-2016-09	90838
+group by first_login_date, substring(first_login_date, 1, 7)
+order by first_login_date, mon;
+
+
+
+---- 每日活跃
+select substring(`date`, 1, 10) as dt, count(distinct userid)
+from db_game_g_kom.gaea_g_kom_daily_log_data
+where substring(`date`, 1, 7) between '2016-01' and '2016-09'
+group by substring(`date`, 1, 10)
+order by dt;
+
+
+---- 每月活跃
+select substring(`date`, 1, 7) as dt, count(distinct userid)
+from db_game_g_kom.gaea_g_kom_daily_log_data
+where substring(`date`, 1, 7) between '2016-01' and '2016-09'
+group by substring(`date`, 1, 7)
+order by dt;
+
+
+-- 按照日，月，所有消耗明细：日期，月份，类型，虚拟货币数
+select ds, substring(ds, 1, 7) as mon, drainid as itemid, sum(cast(proposedamount as bigint)) as vcurrency_uses
+from db_game_g_kom.gaea_g_kom_gem_transactions
+where (ds between '2016-01-01' and '2016-09-30')
+    and fullfilled = '1'
+    and serverid != '150' 
+    and proposedamount != 0
+    and transactiontype in ('2','4','14','990')
+group by ds, substring(ds, 1, 7), drainid
+order by ds, mon, itemid;
+
+
+-- 按照日，月，所有获得明细：日期，月份，类型，虚拟货币数
+select ds, substring(ds, 1, 7) as mon, drainid as itemid, sum(cast(proposedamount as bigint)) as vcurrency_uses
+from db_game_g_kom.gaea_g_kom_gem_transactions
+where (ds between '2016-01-01' and '2016-09-30')
+    and fullfilled = '1'
+    and serverid != '150' 
+    and proposedamount != 0
+    and transactiontype not in ('2','4','14','990')
+group by ds, substring(ds, 1, 7), drainid
+order by ds, mon, itemid;
+
+
+-- 按照日，月，充值获得明细：日期，月份，类型，虚拟货币数
+select ds, substring(ds, 1, 7) as mon, sum(cast(proposedamount as bigint)) as vcurrency_uses
+from db_game_g_kom.gaea_g_kom_gem_transactions
+where (ds between '2016-01-01' and '2016-09-30')
+    and fullfilled = '1'
+    and serverid != '150'
+    and proposedamount != 0
+    and transactiontype = '1'
+group by ds, substring(ds, 1, 7)
+order by ds, mon;
+
+
+
+---- 每日充值人数&金额
+select ds, count(distinct userid), sum(cast(cents as double)) / 100.0 as payamount
+from db_game_g_kom.gaea_g_kom_dollar_transactions
+where substring(ds, 1, 7) between '2016-01' and '2016-09'
+    and serverid != '150'
+group by ds
+order by ds;
+
+---- 每月充值人数&金额
+select substring(ds, 1, 7) as mon, count(distinct userid), sum(cast(cents as double)) / 100.0 as payamount
+from db_game_g_kom.gaea_g_kom_dollar_transactions
+where substring(ds, 1, 7) between '2016-01' and '2016-09'
+    and serverid != '150'
+group by substring(ds,1,7)
+order by mon;
+
+
+---- 每月流水
+select substring(ds,1,7) as m,
+    if(flow is null,
+        '',
+        if(instr(flow,'_')=0,
+            flow,
+            if(size(split(flow,'_'))=3,
+                substring(flow,1,length(flow)-4),
+                split(flow,'_')[0]
+            )
+        )
+    ) as channel,
+    sum(cast(cents as double))/100.0 as USD
+from db_game_g_kom.gaea_g_kom_dollar_transactions
+where substring(ds, 1, 7) between '2016-01' and '2016-09'
+    and serverid != '150'
+group by substring(ds,1,7), 
+    if(flow is null,
+        '',
+        if(instr(flow,'_')=0,
+            flow,
+            if(size(split(flow,'_'))=3,
+                substring(flow,1,length(flow)-4),
+                split(flow,'_')[0]
+            )
+        )
+    )
+having sum(cast(cents as double))/100.0 != 0
+order by m, channel;
+
 
 ----------------------------------------------------------------
 --10. 消耗类型汇总 transactiontype itemid itemcount vcurrency
@@ -356,10 +432,13 @@ left outer join
 on (keyuser.userid = useamount.userid)
 group by keyuser.userid, keyuser.pay_usd, keyuser.vcurrency_get, useamount.itemid;
 
+
+
 ----------------------------------------------------------------
---Kabam 霍比特人 KOM 重要玩家剩余元宝
---取重要玩家，关联到其计算期间结束日前的最后一次有获得/消耗时，
---通过同步时状态表时间之前，所有交易，逆推回其计算期间结束日的剩余虚拟币数量
+-- Kabam 霍比特人 KOM 重要玩家剩余元宝
+-- 取重要玩家，关联到其计算期间结束日前的最后一次有获得/消耗时，
+-- transactiontype in ('3','13')，属于gem获得，存在worldtransaction，不在transaction。
+-- 通过同步时状态表时间之前，所有交易，逆推回其计算期间结束日的剩余虚拟币数量
 ----------------------------------------------------------------
 select changestatus.userid, changestatus.payamount, changestatus.vcurrency_get, sum(finalstatus.vcurrency - changestatus.vcurrency) as vcurrency_use
 from 
@@ -522,23 +601,7 @@ on (keyuser.userid = loginday.userid)
 group by keyuser.userid, keyuser.payamount, keyuser.gem
 order by keyuser.userid, keyuser.payamount, keyuser.gem;
 
-----------------------------------------------------------------
---Kabam 霍比特人 KOM userid对应付费金额(USD)和充值获得钻石数
-----------------------------------------------------------------
---账号付费、获得虚拟币数量>建表，用于取重要玩家
-create table kp_gaea_audit.kabam_kom_key_user_gem
-(
-    userid string,
-    payamount string,
-    gem string
-);
---账号付费、获得虚拟币数量>建表(数据)，用于取重要玩家
-insert into kp_gaea_audit.kabam_kom_key_user_gem
-select userid, sum(cents)/100.0 as payamount, sum(gems) as gem
-from db_game_origin_mysql_backup.gaea_g_kom_dollar_transactions
-where ds = '2016-10-11'
-    and substring(createddate,1,10) between '2016-01-01' and '2016-09-30'
-group by userid;
+
 
 ----------------------------------------------------------------
 --KOM 月活跃MAU，按月排重计登录过的账号ID数
@@ -548,3 +611,21 @@ from db_game_g_kom.gaea_g_kom_daily_log_data
 where ds between '2016-01-01' and '2016-09-30'
 group by substring(`date`,1,7)
 order by thismonth;
+
+
+
+
+
+------================deprecated===================================
+----------------------------------------------------------------
+--5.s1 Kabam KOM  分月计 加入玩家数 
+--已修正的数据源(db_game_origin_mysql_backup.gaea_g_kom_user_full)
+--注：同步的数据是全字段的，但是db_game_g_kom.gaea_g_kom_user是精简字段的
+--@2016.11.04
+----------------------------------------------------------------
+select substring(date_joined,1,7) as joinmonth, count(distinct userid)
+from db_game_g_kom.gaea_g_kom_user
+where ds = '2016-10-11'
+    and substring(date_joined,1,7) between '2016-01' and '2016-09'
+group by substring(date_joined,1,7)
+order by joinmonth;

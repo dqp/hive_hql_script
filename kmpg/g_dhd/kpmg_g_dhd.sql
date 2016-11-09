@@ -1,16 +1,17 @@
 ---- 测试服务器：'249','49'
 
 ----- 每月注册，通过首次登陆时间计算
-select substring(first_login_date, 1, 7) as joinmonth, count(distinct o1.user_id) as count_userid
+select first_login_date, substring(first_login_date, 1, 7) as joinmonth, count(distinct o1.user_id) as count_userid
 from 
 (
     select user_id, min(substring(created_at, 1, 10)) as first_login_date
     from db_game_g_dhd.gaea_g_dhd_login_log
     where substring(created_at, 1, 7) between '2016-01' and '2016-09'
+        and realm_id not in ('249','49')
     group by user_id
 ) o1
-group by substring(first_login_date, 1, 7)
-order by joinmonth;
+group by first_login_date, substring(first_login_date, 1, 7)
+order by first_login_date, joinmonth;
 
 
 ----- 每月注册，通过首次登陆时间计算
@@ -20,6 +21,7 @@ from
     select user_id, min(substring(created_at, 1, 10)) as first_login_date
     from db_game_g_dhd.gaea_g_dhd_login_log
     where substring(created_at, 1, 7) between '2016-01' and '2016-09'
+        and realm_id not in ('249','49')
     group by user_id
 ) o1
 group by first_login_date
@@ -30,6 +32,7 @@ order by first_login_date;
 select substring(created_at, 1, 7) as mon, count(distinct user_id)
 from db_game_g_dhd.gaea_g_dhd_login_log
 where substring(created_at, 1, 7) between '2016-01' and '2016-09'
+    and realm_id not in ('249','49')
 group by substring(created_at, 1, 7)
 order by mon;
 
@@ -38,6 +41,7 @@ order by mon;
 select substring(created_at, 1, 10) as dt, count(distinct user_id)
 from db_game_g_dhd.gaea_g_dhd_login_log
 where substring(created_at, 1, 7) between '2016-01' and '2016-09'
+    and realm_id not in ('249','49')
 group by substring(created_at, 1, 10)
 order by dt;
 
@@ -45,7 +49,8 @@ order by dt;
 ---- 每月付费用户数&金额
 select substring(created_at, 1, 7) as mon, count(distinct user_id), sum(cast(amount_cents as double))/100.0 as payamount
 from db_game_g_dhd.gaea_g_dhd_payments
-where ds between '2016-01-01' and '2016-09-30'
+where substring(ds, 1, 7) between '2016-01' and '2016-09'
+    and realm_id not in ('249','49')
 group by substring(created_at, 1, 7)
 order by mon;
 
@@ -53,9 +58,72 @@ order by mon;
 ---- 每日付费用户数&金额
 select substring(created_at, 1, 10) as dt, count(distinct user_id), sum(cast(amount_cents as double))/100.0 as payamount
 from db_game_g_dhd.gaea_g_dhd_payments
-where ds between '2016-01-01' and '2016-09-30'
+where substring(ds, 1, 7) between '2016-01' and '2016-09'
+    and realm_id not in ('249','49')
 group by substring(created_at, 1, 10)
 order by dt;
+
+
+----------------------------------------------------------------
+--Kabam 龙族崛起 DHD(/DOAH) 分平台计 充值金额(USD)
+----------------------------------------------------------------
+select substring(ds, 1, 7) as mon, platform, sum(cast(amount_cents as double))/100.0 
+from db_game_g_dhd.gaea_g_dhd_payments
+where substring(ds, 1, 7) between '2016-01' and '2016-09'
+    and realm_id not in ('249','49')
+group by substring(ds, 1, 7), platform
+order by mon, platform;
+
+
+----------------------------------------------------------------
+--Kabam 龙族崛起 DHD(/DOAH) 分平台计 充值金额(USD)
+----------------------------------------------------------------
+select ds, platform, sum(cast(amount_cents as double))/100.0 
+from db_game_g_dhd.gaea_g_dhd_payments
+where substring(ds, 1, 7) between '2016-01' and '2016-09'
+    and realm_id not in ('249','49')
+group by ds, platform
+order by ds, platform;
+
+
+
+------ 每月充值获得虚拟货币
+select substring(created_at, 1, 7) as mon, sum(cast(`value` as bigint)) as vcurrency
+from db_game_g_dhd.gaea_g_dhd_payments
+where substring(ds, 1, 7) between '2016-01' and '2016-09'
+    and realm_id not in ('249','49')
+group by substring(created_at, 1, 7)
+order by mon;
+
+
+------ 每日充值获得虚拟货币
+select substring(created_at, 1, 10) as mon, sum(cast(`value` as bigint)) as vcurrency
+from db_game_g_dhd.gaea_g_dhd_payments
+where substring(ds, 1, 7) between '2016-01' and '2016-09'
+    and realm_id not in ('249','49')
+group by substring(created_at, 1, 10)
+order by mon;
+
+-- 分消耗类型计 消耗虚拟币数量(vcurrency)
+select substring(created_at,1, 10) as dt, substring(created_at,1, 7) as mon, tag, sum(-cast(rubies as bigint)) as vcurrency
+from db_stat_kabam_mysql.doah_user_rubies
+where substring(ds, 1, 7) between '2016-01' and '2016-09'
+    and cast(rubies as bigint) < 0
+    and realm_id not in ('249', '49')
+    and ruby_type = '0'
+group by substring(created_at,1, 10), substring(created_at,1, 7), tag
+order by dt, mon, tag;
+
+
+-- 分消获得型计 获得虚拟币数量(vcurrency)
+select substring(created_at,1, 10) as dt, substring(created_at,1, 7) as mon, tag, sum(cast(rubies as bigint)) as vcurrency
+from db_stat_kabam_mysql.doah_user_rubies
+where substring(ds, 1, 7) between '2016-01' and '2016-09'  
+    and cast(rubies as bigint) > 0
+    and realm_id not in ('249', '49')
+    and ruby_type = '0'
+group by substring(created_at,1, 10), substring(created_at,1, 7), tag
+order by dt, mon, tag;
 
 
 
@@ -63,7 +131,8 @@ order by dt;
 insert into table kp_gaea_audit.kabam_dhd_key_user
 select user_id as userid, sum(cast(amount_cents as bigint))/100.0 as payamount, sum(cast(`value` as bigint)) as vcurrency
 from db_game_g_dhd.gaea_g_dhd_payments
-where ds between '2016-01-01' and '2016-09-30'
+where substring(ds, 1, 7) between '2016-01' and '2016-09'
+    and realm_id not in ('249','49')
 group by user_id
 order by payamount desc;
 
@@ -134,19 +203,7 @@ group by changestatus.userid, changestatus.payamount, changestatus.vcurrency_get
 
 
 
-----------------------------------------------------------------
---Kabam 龙族崛起 DHD(/DOAH) 分平台计 充值金额(USD)
-----------------------------------------------------------------
-select platform, sum(cast(amount_cents as bigint))/100.0 
-from db_game_g_dhd.gaea_g_dhd_payments
-where ds between '2016-01-01' and '2016-09-30'
-    and realm_id not in ('249','49')
-group by platform;
---对比数据
-GooglePlay	5794647.49
-TrialPay	10034.48
-iTunes	4215406.1
-loyalty	0.0
+
 
 
 ----------------------------------------------------------------
@@ -181,11 +238,6 @@ where ds between '2016-01-01' and '2016-09-30'
     and ruby_type = '0'
 group by tag
 order by tag;
-
-
-
-
-
 
 
 
