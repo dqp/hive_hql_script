@@ -156,6 +156,10 @@ on (gboss.pay_currency = x.from_currency)
 group by gboss.user_id;
 
 
+--- 重要玩家注册
+
+
+
 ---- 重要玩家表创建
 CREATE TABLE `kr_dota_key_users`(
     `user_id` string,
