@@ -139,53 +139,51 @@ group by ds
 
 -- 每日经好友推荐后注册用户数
 --  invitedid 被邀请的玩家的角色id，通过roleid 和 serverid 唯一确定一个gaeaid
-select register.ds, count(distinct gaeaid) from
+select register.ds, count(distinct userid) from
 (
-  select min(ds), invitedid, gameregion
+  select min(ds), invitedid as roleid, gameregion as serverid
   from xjqxz.gaea_s_cm_invitefriend
   where ds between  '20160721' and '20160930'
   group by invitedid, gameregion
 ) invitefriend
 join
 (
-  select ds, accountid, gaeaid, serverid
+  select ds, accountid as roleid, gaeaid as userid, serverid
   from db_stat_platform.gaea_stat_login
   where ds between '20160721' and '20160930'
     and appid = 'cn.xjqxz'
     and action = '0'
 ) register
-on (invitefriend.gameregion = register.serverid and invitefriend.invitedid = register.accountid)
+on (invitefriend.serverid = register.serverid and invitefriend.roleid = register.roleid)
 group by register.ds
 
-
+-- 邀请和被邀请服务在一个游戏服务器，需要根据角色关联。角色的注册时间即为邀请注册时间。
 -- 经好友推荐后注册用户的次日留存率,7日留存率,14日留存率
 hive -S -e "
-select register.ds, datediff(login.logindate, register.registerdate) as retentiondays, count(distinct login.gaeaid) from
+select register.ds, datediff(login.logindate, register.registerdate) as retentiondays, count(distinct login.userid) from
 (
-  select min(ds), invitedid, gameregion
+  select min(ds), invitedid as roleid, gameregion as serverid
   from xjqxz.gaea_s_cm_invitefriend
-  where ds between  '20160818' and '20161106'
+  where ds between  '20160721' and '20160930'
   group by invitedid, gameregion
 ) invitefriend
 join
 (
-  select ds, from_unixtime(unix_timestamp(ds, 'yyyyMMdd'), 'yyyy-MM-dd') as registerdate,accountid, gaeaid, serverid
+  select ds, from_unixtime(unix_timestamp(ds, 'yyyyMMdd'), 'yyyy-MM-dd') as registerdate, accountid as roleid, gaeaid as userid, serverid
   from db_stat_platform.gaea_stat_login
-  where ds between '20160818' and '20161106'
+  where ds between '20160721' and '20160930'
     and appid = 'cn.xjqxz'
     and action = '0'
 ) register
-on (invitefriend.gameregion = register.serverid and invitefriend.invitedid = register.accountid)
+on (invitefriend.serverid = register.serverid and invitefriend.roleid = register.roleid)
 join
 (
-  select ds, from_unixtime(unix_timestamp(ds, 'yyyyMMdd'), 'yyyy-MM-dd') as logindate,accountid, gaeaid, serverid
-  from db_stat_platform.gaea_stat_login
-  where ds between '20160818' and '20161106'
+  select ds, from_unixtime(unix_timestamp(ds, 'yyyyMMdd'), 'yyyy-MM-dd') as logindate, gaeaid as userid
+  from db_stat_platform.gaea_stat_userlogin
+  where ds between '20160721' and '20161015'
     and appid = 'cn.xjqxz'
-    and accountid is not null
-    and serverid is not null
 ) login
-on(register.gaeaid = login.gaeaid)
+on(register.userid = login.userid)
 where datediff(login.logindate, register.registerdate)  in (1, 6, 13)
 group by register.ds, datediff(login.logindate, register.registerdate)
 order by register.ds, retentiondays asc
@@ -207,7 +205,7 @@ order by ds , warestype asc
 hive -S -e "
 select register.registerdate, datediff(login.logindate, register.registerdate) as retentiondays, count(distinct login.gaeaid) from
 (
-  select from_unixtime(unix_timestamp(min(ds), 'yyyyMMdd'), 'yyyy-MM-dd') as registerdate, gaeaid
+  select min(from_unixtime(unix_timestamp(ds, 'yyyyMMdd'), 'yyyy-MM-dd')) as registerdate, gaeaid
   from db_stat_platform.gaea_stat_userlogin
   where ds between '20160721' and '20160930'
     and appid = 'cn.xjqxz'
@@ -217,12 +215,12 @@ join
 (
   select from_unixtime(unix_timestamp(ds, 'yyyyMMdd'), 'yyyy-MM-dd') as logindate, gaeaid
   from db_stat_platform.gaea_stat_userlogin
-  where ds between '20160721' and '20160930'
+  where ds between '20160721' and '20161030'
     and appid = 'cn.xjqxz'
   group by from_unixtime(unix_timestamp(ds, 'yyyyMMdd'), 'yyyy-MM-dd'), gaeaid
 ) login
 on(register.gaeaid = login.gaeaid)
-where datediff(login.logindate, register.registerdate) in (1, 7, 14)
+where datediff(login.logindate, register.registerdate) in (1, 6, 13, 29)
 group by register.registerdate, datediff(login.logindate, register.registerdate)
 order by register.registerdate, retentiondays asc
 " > allUserRetention0818_1106.txt
