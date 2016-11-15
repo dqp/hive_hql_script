@@ -7,6 +7,68 @@ msck repair table db_game_origin_mysql_backup.gaea_kr_dota_login;
 msck repair table db_game_origin_mysql_backup.gaea_kr_dota_user_create;
 
 
+CREATE EXTERNAL TABLE `db_game_kr_dota.gaea_kr_dota_login`(
+  `ieventid` string,
+  `dteventtime` string,
+  `iuserid` string,
+  `vusername` string,
+  `vloginip` string,
+  `ilevel` string,
+  `icharge` string,
+  `vfrom` string,
+  `vuin` string
+)
+PARTITIONED BY (
+  `ds` string,
+  `serverid` string
+)
+ROW FORMAT DELIMITED
+  FIELDS TERMINATED BY '`'
+STORED AS textfile;
+
+
+CREATE EXTERNAL TABLE `db_game_kr_dota.gaea_kr_dota_diamond_flow`(
+  `ieventid` string,
+  `dteventtime` string,
+  `iuserid` string,
+  `vusername` string,
+  `ilevel` string,
+  `icharge` string,
+  `iaction` string,
+  `iflow` string,
+  `idiamondbefore` string,
+  `idiamondafter` string
+  )
+PARTITIONED BY (
+  `ds` string,
+  `serverid` string
+  )
+ROW FORMAT DELIMITED
+  FIELDS TERMINATED BY '`'
+STORED AS textfile;
+
+
+
+
+CREATE EXTERNAL TABLE `db_game_kr_dota.gaea_kr_dota_user_create`(
+  `ieventid` string,
+  `dteventtime` string,
+  `iuserid` string,
+  `vusername` string,
+  `vloginip` string,
+  `vuin` string,
+  `vdevid` string,
+  `iisnewuin` string
+  )
+PARTITIONED BY (
+  `ds` string,
+  `serverid` string
+  )
+ROW FORMAT DELIMITED
+  FIELDS TERMINATED BY '`'
+STORED AS textfile;
+
+
 CREATE external TABLE `db_game_kr_dota.gaea_kr_dota_user`(
     iUserId string,
     vDeviceId string,
