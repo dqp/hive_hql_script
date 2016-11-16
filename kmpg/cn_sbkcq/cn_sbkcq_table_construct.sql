@@ -10,6 +10,7 @@ ROW FORMAT DELIMITED
 STORED AS PARQUET;
 
 
+---- 用户
 CREATE EXTERNAL TABLE `db_stat_sbkcq.cn_sbkcq_user_accout_map`(
   `region_id` string,
   `account_id` string,

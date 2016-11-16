@@ -41,7 +41,7 @@ on(payment.currency = rates.from_currency)
 group by payment.user_id;
 
 
----- 重要玩家充值获得虚拟货币
+---- 重要玩家充值获得虚拟货币(所有/充值获得)
 select ku.user_id, ku.cny, yb.coinnum
 from
 (
