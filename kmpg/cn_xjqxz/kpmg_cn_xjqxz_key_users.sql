@@ -61,111 +61,160 @@ left outer join
 on (ku.user_id = yb.user_id);
 
 
--- 每天充值虚拟货币数
-select ds, cointype, reason, sum(coinnum) as coinnum
-from xjqxz.gaea_s_cm_vcurrency
-where ds between '20160721' and '20160930'
-  and reason = '充值获得的元宝(绑定或通用)'
-  and cointype = 'yuanBao'
-group by ds, cointype, reason
-order by ds asc
-
-
--- 每天消耗虚拟货币数
-select ds, sum(coinnum)
-from xjqxz.gaea_s_cm_vcurrency
-where ds between '20160721' and '20160930'
-  and cointype in ('yuanBao', 'bindingYuanbao')
-  and addtype = 1
-group by ds  
-
-
--- 每日经好友推荐后注册用户数
---  invitedid 被邀请的玩家的角色id，通过roleid 和 serverid 唯一确定一个gaeaid
-select register.ds, count(distinct gaeaid) from
+---- User-id、每个user-id充值金额、每个user-id注册日期(done)
+select ku.user_id, ku.cny, register.registerdate
+from
 (
-  select min(ds), invitedid, gameregion
-  from xjqxz.gaea_s_cm_invitefriend
-  where ds between  '20160721' and '20160930'
-  group by invitedid, gameregion
-) invitefriend
-join
+  select user_id, cny
+  from kp_gaea_audit.cn_xjqxz_payers_201609
+  where cast(cny as double) > 3000
+) ku
+left outer join
 (
-  select ds, accountid, gaeaid, serverid
-  from db_stat_platform.gaea_stat_login
+  select min(from_unixtime(unix_timestamp(ds, 'yyyyMMdd'), 'yyyy-MM-dd')) as registerdate, gaeaid as user_id
+  from db_stat_platform.gaea_stat_userlogin
+  where ds between '20160721' and '20161030'
+    and appid = 'cn.xjqxz'
+  group by gaeaid
+) register
+on (ku.user_id = register.user_id)
+order by register.registerdate asc;
+
+
+---- 重要玩家充值获得虚拟货币(充值获得)
+select ku.user_id, ku.cny, yb.coinnum
+from
+(
+  select user_id, cny
+  from kp_gaea_audit.cn_xjqxz_payers_201609
+  where cast(cny as double) > 3000
+) ku
+left outer join
+(
+  select accountid as user_id, sum(coinnum) as coinnum
+  from xjqxz.gaea_s_cm_vcurrency
+  where ds between '20160721' and '20160930'
+    and reason = '充值获得的元宝(绑定或通用)'
+    and cointype = 'yuanBao'
+    and addtype = 0
+  group by accountid
+) yb
+on (ku.user_id = yb.user_id);
+
+
+---- 重要玩家消耗虚拟货币(所有)
+select ku.user_id, yb.reason, sum(yb.coinnum)
+from
+(
+  select user_id, cny
+  from kp_gaea_audit.cn_xjqxz_payers_201609
+  where cast(cny as double) > 3000
+) ku
+left outer join
+(
+  select accountid as user_id, sum(coinnum) as coinnum, reason
+  from xjqxz.gaea_s_cm_vcurrency
+  where ds between '20160721' and '20160930'
+    and cointype in ('yuanBao','bindingYuanbao')
+    and addtype = 1
+  group by accountid, reason
+) yb
+on (ku.user_id = yb.user_id)
+group by ku.user_id, reason;
+
+
+-- 重要玩家活跃天数
+select ku.user_id, count(distinct login.ds) as active_days
+from
+(
+  select user_id
+  from kp_gaea_audit.cn_xjqxz_payers_201609
+  where cast(cny as double) > 3000
+) ku
+left outer join
+(
+  select ds, gaeaid as user_id
+  from db_stat_platform.gaea_stat_userlogin
   where ds between '20160721' and '20160930'
     and appid = 'cn.xjqxz'
-    and action = '0'
-) register
-on (invitefriend.gameregion = register.serverid and invitefriend.invitedid = register.accountid)
-group by register.ds
-
-
--- 经好友推荐后注册用户的次日留存率,7日留存率,14日留存率
-hive -S -e "
-select register.ds, datediff(login.logindate, register.registerdate) as retentiondays, count(distinct login.gaeaid) from
-(
-  select min(ds), invitedid, gameregion
-  from xjqxz.gaea_s_cm_invitefriend
-  where ds between  '20160818' and '20161106'
-  group by invitedid, gameregion
-) invitefriend
-join
-(
-  select ds, from_unixtime(unix_timestamp(ds, 'yyyyMMdd'), 'yyyy-MM-dd') as registerdate,accountid, gaeaid, serverid
-  from db_stat_platform.gaea_stat_login
-  where ds between '20160818' and '20161106'
-    and appid = 'cn.xjqxz'
-    and action = '0'
-) register
-on (invitefriend.gameregion = register.serverid and invitefriend.invitedid = register.accountid)
-join
-(
-  select ds, from_unixtime(unix_timestamp(ds, 'yyyyMMdd'), 'yyyy-MM-dd') as logindate,accountid, gaeaid, serverid
-  from db_stat_platform.gaea_stat_login
-  where ds between '20160818' and '20161106'
-    and appid = 'cn.xjqxz'
-    and accountid is not null
-    and serverid is not null
+  group by ds, gaeaid
 ) login
-on(register.gaeaid = login.gaeaid)
-where datediff(login.logindate, register.registerdate)  in (1, 7, 14)
-group by register.ds, datediff(login.logindate, register.registerdate)
-order by register.ds, retentiondays asc
-" > invitedFriendRetention0818_1108.txt
+on (ku.user_id = login.user_id)
+group by ku.user_id;
 
 
--- 游戏内交易行的日交易类型、交易数
--- warestype 商品类型
-hive -S -e "
-select ds, warestype, count(*)
-from xjqxz.gaea_s_cm_auditing
-where ds between '20160721' and '20160930'
-group by ds, warestype
-order by ds , warestype asc
-" > auditingTypeNum0818_1108.txt
-
-
--- 所有玩家次日留存率、7日留存率、14日留存率、30日留存率。
-hive -S -e "
-select register.registerdate, datediff(login.logindate, register.registerdate) as retentiondays, count(distinct login.gaeaid) from
+-- 每月累计注册人数
+select substring(register.registerdate, 1, 6) as month, count(distinct ku.user_id) 
+from
 (
-  select from_unixtime(unix_timestamp(min(ds), 'yyyyMMdd'), 'yyyy-MM-dd') as registerdate, gaeaid
+  select user_id
+  from kp_gaea_audit.cn_xjqxz_payers_201609
+  where cast(cny as double) > 3000
+) ku
+left outer join
+(
+  select min(ds) as registerdate, gaeaid as user_id
   from db_stat_platform.gaea_stat_userlogin
   where ds between '20160721' and '20160930'
     and appid = 'cn.xjqxz'
   group by gaeaid
 ) register
-join
+on (ku.user_id = register.user_id)
+group by substring(register.registerdate, 1, 6)
+order by month asc;
+
+
+-- 每月累计活跃人数
+select login.month, count(distinct ku.user_id) as active_user
+from
 (
-  select from_unixtime(unix_timestamp(ds, 'yyyyMMdd'), 'yyyy-MM-dd') as logindate, gaeaid
+  select user_id
+  from kp_gaea_audit.cn_xjqxz_payers_201609
+  where cast(cny as double) > 3000
+) ku
+left outer join
+(
+  select substring(ds,1,6) as month, gaeaid as user_id
   from db_stat_platform.gaea_stat_userlogin
   where ds between '20160721' and '20160930'
     and appid = 'cn.xjqxz'
-  group by from_unixtime(unix_timestamp(ds, 'yyyyMMdd'), 'yyyy-MM-dd'), gaeaid
+  group by substring(ds,1,6), gaeaid
 ) login
-on(register.gaeaid = login.gaeaid)
-where datediff(login.logindate, register.registerdate) in (1, 7, 14)
-group by register.registerdate, datediff(login.logindate, register.registerdate)
-order by register.registerdate, retentiondays asc
-" > allUserRetention0818_1106.txt
+on (ku.user_id = login.user_id)
+group by login.month;
+
+
+---- 每个user-id角色等级(done)
+select ku.user_id, level.level from
+(
+  select user_id
+  from kp_gaea_audit.cn_xjqxz_payers_201609
+  where cast(cny as double) > 3000
+) ku
+left outer join
+(
+  select accountid as user_id, max(level) as level
+  from xjqxz.gaea_s_rolelevel
+  where ds between '20160721' and '20160930'
+  group by accountid
+) level
+on(ku.user_id = level.user_id);
+
+
+---- 每个user-id邀请好友数量
+select ku.user_id, count(distinct invite.invitedid) as invited_user
+from
+(
+  select user_id
+  from kp_gaea_audit.cn_xjqxz_payers_201609
+  where cast(cny as double) > 3000
+) ku
+left outer join
+(
+  select accountid as user_id, invitedid
+  from xjqxz.gaea_s_cm_invitefriend
+  where ds between  '20160721' and '20160930'
+  group by accountid, invitedid
+) invite
+on(ku.user_id = invite.user_id)  
+group by ku.user_id;

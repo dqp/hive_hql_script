@@ -23,7 +23,6 @@ create table kp_gaea_audit.kabam_dhd_key_user
 )
 stored as orc;
 
-
 --Kabam 龙族崛起 DHD 用户付费表，加虚拟币获得数，建表(数据) 新 #33931
 insert into table kp_gaea_audit.kabam_dhd_key_user
 select user_id as userid, sum(cast(amount_cents as bigint))/100.0 as payamount, sum(cast(`value` as bigint)) as vcurrency
@@ -31,5 +30,25 @@ from db_game_g_dhd.gaea_g_dhd_payments
 where ds between '2016-01-01' and '2016-09-30'
 group by user_id
 order by payamount desc;
+
+
+---- 20160101~20160930 玩家付费表
+create external table kp_gaea_audit.g_dhd_payers_201609
+(
+    userid string,
+    payamount string,
+    vcurrency string    
+)
+stored as parquet;
+
+insert into table kp_gaea_audit.g_dhd_payers_201609
+select user_id as userid, sum(cast(amount_cents as bigint))/100.0 as payamount, sum(cast(`value` as bigint)) as vcurrency
+from db_game_g_dhd.gaea_g_dhd_payments
+where ds between '2016-01-01' and '2016-09-30'
+group by user_id
+order by payamount desc;
+
+
+
 
 
