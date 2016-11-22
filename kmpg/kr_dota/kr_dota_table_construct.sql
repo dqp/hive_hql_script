@@ -7,6 +7,97 @@ msck repair table db_game_origin_mysql_backup.gaea_kr_dota_login;
 msck repair table db_game_origin_mysql_backup.gaea_kr_dota_user_create;
 
 
+CREATE TABLE `db_game_origin_mysql_backup.gboss_users_slave`(
+  `user_id` string,
+  `user_name` string,
+  `email` string,
+  `login_ip` string,
+  `login_time` string,
+  `reg_ip` string,
+  `reg_time` string,
+  `user_status` string,
+  `vouch_count_total` string,
+  `vouch_amount_total` string,
+  `vouch_amount` string,
+  `lcoins_total` string,
+  `lcoins` string,
+  `lcoins_less` string,
+  `lockstatus` string,
+  `mobile` string,
+  `ifa` string,
+  `mac` string,
+  `udid` string)
+PARTITIONED BY (
+  `ds` string,
+  `region` string)
+ROW FORMAT DELIMITED
+  FIELDS TERMINATED BY '`'
+STORED AS textfile;
+
+---- gboss的用户信息表
+CREATE TABLE `db_billing.gboss_users_slave`(
+  `user_id` string,
+  `user_name` string,
+  `email` string,
+  `login_ip` string,
+  `login_time` string,
+  `reg_ip` string,
+  `reg_time` string,
+  `user_status` string,
+  `vouch_count_total` string,
+  `vouch_amount_total` string,
+  `vouch_amount` string,
+  `lcoins_total` string,
+  `lcoins` string,
+  `lcoins_less` string,
+  `lockstatus` string,
+  `mobile` string,
+  `ifa` string,
+  `mac` string,
+  `udid` string)
+PARTITIONED BY (
+  `region` string)
+STORED AS PARQUET;
+
+insert overwrite table db_billing.gboss_users_slave partition(region)
+select user_id,user_name,email,login_ip,login_time,reg_ip,reg_time,user_status,vouch_count_total,vouch_amount_total,vouch_amount,lcoins_total,lcoins,lcoins_less,lockstatus,mobile,ifa,mac,udid,region
+from db_game_origin_mysql_backup.gboss_users_slave
+where ds = '2016-11-22';
+
+
+--- 用户信息表
+CREATE EXTERNAL TABLE `db_game_origin_mysql_backup.gaea_kr_dota_user`(
+  `iuserid` string,
+  `vdeviceid` string,
+  `ilevel` string,
+  `icharge` string,
+  `llgold` string,
+  `idiamond` string,
+  `iserverid` string,
+  `dtlastlogintime` string,
+  `iismigrate` string)
+PARTITIONED BY (
+  `ds` string,
+  `serverid` string)
+ROW FORMAT DELIMITED
+  FIELDS TERMINATED BY '`'
+STORED AS textfile;
+
+CREATE EXTERNAL TABLE `db_game_kr_dota.gaea_kr_dota_user`(
+  `iuserid` string,
+  `vdeviceid` string,
+  `iserverid` string
+)
+STORED AS PARQUET;
+
+insert overwrite table db_game_kr_dota.gaea_kr_dota_user
+select iuserid, vdeviceid, iserverid
+from db_game_origin_mysql_backup.gaea_kr_dota_user
+group by iuserid, vdeviceid, iserverid;
+
+
+
+
 CREATE EXTERNAL TABLE `db_game_kr_dota.gaea_kr_dota_login`(
   `ieventid` string,
   `dteventtime` string,
