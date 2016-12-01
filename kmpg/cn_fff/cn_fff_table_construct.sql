@@ -23,9 +23,9 @@ set hive.exec.dynamic.partition.mode=nonstrict;
 set hive.exec.max.dynamic.partitions.pernode=100000;
 set hive.exec.max.dynamic.partitions = 100000;
 INSERT OVERWRITE table `db_game_cn_fff.gaea_cn_fff_data_summoner` PARTITION (serverid)
-select id, accountid, serverid
+select id, accountid, honor, serverid
 from `db_game_origin_mysql_backup.gaea_cn_fff_data_summoner`
-where ds = '2016-11-04';
+where ds = '2016-11-25';
 
 
 INSERT OVERWRITE table `db_game_cn_fff.gaea_cn_fff_role_id_login`
@@ -36,14 +36,25 @@ where ds = '2016-11-06';
 
 
 
-CREATE EXTERNAL TABLE `db_game_cn_fff.gaea_cn_fff_data_summoner`(
+CREATE EXTERNAL TABLE `db_game_origin_mysql_backup.gaea_cn_fff_data_summoner`(
   `id` string,
-  `accountid` string)
+  `accountid` string,
+  `honor` string)
 PARTITIONED BY (
+  `ds` string,
   `serverid` string)
 ROW FORMAT DELIMITED
   FIELDS TERMINATED BY '`'
-STORED AS PARQUET;
+STORED AS textFile;
+
+
+CREATE TABLE `db_game_cn_fff.gaea_cn_fff_data_summoner`(
+  `id` string,
+  `accountid` string,
+  `honor` string)
+PARTITIONED BY (
+  `serverid` string)
+STORED AS parquet;
 
 
 CREATE EXTERNAL TABLE `db_game_cn_fff.gaea_cn_fff_data_charge_log`(
